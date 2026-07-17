@@ -108,3 +108,70 @@ doj-platform/
 ├── .env.example
 ├── next.config.ts · postcss.config.mjs · tsconfig.json · package.json
 ```
+
+---
+
+## Phase 1B: Authentication and invitations
+
+**Status: Delivered** (Phase 1A + 1B = 31 files, 20 routes)
+
+### What's new in 1B
+
+- Email/password authentication via Supabase Auth
+- Invitation flow with one-time activation links (7-day expiry)
+- Self-serve password reset via email
+- Account suspension (immediate, revokes all access live)
+- Transactional email via Resend (free tier)
+- Session management with middleware protection
+- Audit logging for all auth events
+- `/portal` and `/applicant` protected routes
+- Discord OAuth plumbed and ready (Phase 1I)
+
+### Database
+
+Three new migrations:
+- `0005_audit_logs.sql` — append-only audit trail, never edited/deleted
+- `0006_invitations.sql` — secure, hashed, one-time-use tokens
+- `0007_password_reset_tokens.sql` — short-lived (15 min) reset tokens
+
+### Auth pages
+
+- `/login` — email + password sign-in
+- `/auth/activate?token=...` — invitation acceptance with profile setup
+- `/auth/forgot-password` — request reset email
+- `/auth/reset-password?token=...` — password reset form
+- `/auth/suspended` — account suspended notice
+- `/auth/callback` — OAuth ready (empty until Phase 1I)
+- `/auth/logout` — sign out (POST)
+
+### Portal shell
+
+- `/portal` — protected dashboard (stub, full content Phase 1C+)
+- `/portal/settings` — account settings + connections stub (Discord Phase 1I)
+- Responsive sidebar nav + user menu with logout
+- Session refresh on every request via middleware
+
+### Applicant shell
+
+- `/applicant` — protected overview (stub, application tracking Phase 1E)
+
+### Setup & testing
+
+- `docs/setup-resend.md` — free Resend account + API key setup
+- `docs/testing-checklists/phase-1b.md` — complete manual test matrix including
+  suspension, audit logging, edge cases
+
+### Known limitations
+
+- Invitations and password resets created by hand in DB (Phase 1B manual testing).
+  The UI + email sender for `sendInvitation()` arrive in Phase 1C.
+- Portal / applicant content are stubs.
+- Discord linking stubbed (Phase 1I).
+
+### To deploy Phase 1B
+
+1. Apply migrations 0005, 0006, 0007 to Supabase.
+2. Set `RESEND_API_KEY` in Vercel environment variables.
+3. Redeploy.
+4. Follow `docs/testing-checklists/phase-1b.md` for manual testing.
+
