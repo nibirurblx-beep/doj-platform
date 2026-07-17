@@ -20,12 +20,33 @@ create table public.invitations (
   revoked_at        timestamptz,
   created_user_id   uuid references auth.users (id) on delete set null,
   created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now(),
-  check (office_id is null or exists (
-    select 1 from public.offices o
-    where o.id = office_id and o.organisation_id = organisation_id
-  ))
+  updated_at        timestamptz not null default now()
 );
+
+-- Postgres does not allow subqueries in check constraints, so office/org
+-- consistency is enforced with a trigger instead.
+create or replace function public.invitations_check_office_org()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.office_id is not null then
+    if not exists (
+      select 1 from public.offices o
+      where o.id = new.office_id
+        and o.organisation_id = new.organisation_id
+    ) then
+      raise exception 'Office % does not belong to organisation %',
+        new.office_id, new.organisation_id;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger invitations_office_org_check
+  before insert or update on public.invitations
+  for each row execute function public.invitations_check_office_org();
 
 create index invitations_email_idx on public.invitations (email);
 create index invitations_role_idx on public.invitations (role_id);
