@@ -5,7 +5,12 @@ import { useActionState } from "react";
 import Link from "next/link";
 
 export function LoginForm() {
-  const [state, formAction, isPending] = useActionState(loginAction, null);
+  const [state, formAction, isPending] = useActionState(
+    async (_prevState: unknown, formData: FormData) => {
+      return loginAction(formData);
+    },
+    null,
+  );
 
   return (
     <form action={formAction} className="space-y-4">

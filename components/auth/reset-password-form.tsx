@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const [state, formAction, isPending] = useActionState(
-    (formData: FormData) => {
+    async (_prevState: unknown, formData: FormData) => {
       formData.append("token", token);
       return resetPasswordAction(formData);
     },
