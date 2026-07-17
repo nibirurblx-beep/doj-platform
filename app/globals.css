@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   Design tokens: formal government presentation.
+   Palette per approved architecture: deep navy, near-black, muted gold,
+   white, pale grey, restrained red for warnings and significant actions.
+
+   Webfonts (Public Sans for interface, Source Serif 4 for editorial display)
+   are wired in Phase 1D with the full public design pass; until then the
+   stacks below fall back to high-quality system faces so nothing depends on
+   external font fetches.
+   ========================================================================== */
+
+@theme {
+  /* Colour */
+  --color-ink: #101418;            /* near-black text */
+  --color-navy-950: #0c1626;       /* deepest chrome */
+  --color-navy-900: #14263f;       /* primary institutional navy */
+  --color-navy-800: #1d3557;
+  --color-navy-100: #dde4ee;
+  --color-gold-600: #8a6d1f;       /* muted gold, accessible on white */
+  --color-gold-500: #a3852c;
+  --color-gold-200: #e6d9ad;
+  --color-grey-050: #f4f5f7;       /* pale grey surfaces */
+  --color-grey-200: #d6dae0;
+  --color-grey-500: #5c6672;
+  --color-signal-red: #8c1d18;     /* restrained red: warnings only */
+  --color-paper: #ffffff;
+
+  /* Type */
+  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-sans: "Public Sans", -apple-system, "Segoe UI", Roboto, Arial,
+    sans-serif;
+
+  /* Layout rhythm */
+  --spacing-measure: 42rem; /* readable line length for editorial prose */
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background: var(--color-paper);
+  }
+
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  /* Accessibility floor: visible focus everywhere, no colour-only states */
+  :focus-visible {
+    outline: 3px solid var(--color-gold-500);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    background: var(--color-navy-900);
+    color: #fff;
+    padding: 0.75rem 1.25rem;
+  }
+  .skip-link:focus {
+    left: 0;
+  }
+}
