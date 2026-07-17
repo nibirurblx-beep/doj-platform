@@ -22,9 +22,10 @@ export async function loginAction(formData: FormData) {
   });
 
   if (!result.success) {
-    return { error: result.error.errors[0].message };
+    const errors = result.error.flatten().fieldErrors;
+    return { error: Object.values(errors)[0]?.[0] || "Invalid input" };
   }
-
+  
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword({
     email: result.data.email,
