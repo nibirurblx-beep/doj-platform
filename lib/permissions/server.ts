@@ -57,9 +57,9 @@ export async function userHasPermission(
   if (!user) return false;
 
   const { data, error } = await supabase.rpc("user_has_permission", {
-    p_user_id: user.id,
-    p_permission_key: permissionKey,
-    p_organisation_id: organisationId,
+    p_user: user.id,
+    p_permission: permissionKey,
+    p_org: organisationId,
   });
   if (error) {
     console.error("user_has_permission failed:", error.message);

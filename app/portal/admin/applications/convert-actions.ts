@@ -22,7 +22,7 @@ export async function convertApplicantAction(formData: FormData) {
     roleId: formData.get("roleId"),
     officeId: formData.get("officeId") ?? "",
     rank: formData.get("rank") ?? "",
-    title: formData.get("title") ?? "",
+    title: "",
   });
   if (!parsed.success) {
     const errors = parsed.error.flatten().fieldErrors;

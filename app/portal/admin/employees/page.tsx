@@ -88,7 +88,7 @@ export default async function EmployeesAdminPage({
                 <th className="px-5 py-3 font-medium">Number</th>
                 <th className="px-5 py-3 font-medium">Name</th>
                 <th className="px-5 py-3 font-medium">Organisation</th>
-                <th className="px-5 py-3 font-medium">Rank / Title</th>
+                <th className="px-5 py-3 font-medium">Rank</th>
                 <th className="px-5 py-3 font-medium">Started</th>
                 <th className="px-5 py-3 font-medium">Status</th>
               </tr>
@@ -107,9 +107,7 @@ export default async function EmployeesAdminPage({
                       {nameById.get(emp.user_id) || "—"}
                     </td>
                     <td className="px-5 py-3">{orgName}</td>
-                    <td className="px-5 py-3">
-                      {[emp.rank, emp.title].filter(Boolean).join(" · ") || "—"}
-                    </td>
+                    <td className="px-5 py-3">{emp.rank || "—"}</td>
                     <td className="px-5 py-3">{formatDate(emp.started_at)}</td>
                     <td className="px-5 py-3">
                       <span

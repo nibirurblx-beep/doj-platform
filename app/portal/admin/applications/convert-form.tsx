@@ -114,31 +114,17 @@ export function ConvertForm({
         </select>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label htmlFor="rank" className="block text-sm font-medium">
-            Rank <span className="text-grey-500">(optional)</span>
-          </label>
-          <input
-            id="rank"
-            name="rank"
-            type="text"
-            maxLength={80}
-            className="mt-1 w-full rounded border border-grey-300 px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium">
-            Job title <span className="text-grey-500">(optional)</span>
-          </label>
-          <input
-            id="title"
-            name="title"
-            type="text"
-            maxLength={120}
-            className="mt-1 w-full rounded border border-grey-300 px-3 py-2 text-sm"
-          />
-        </div>
+      <div>
+        <label htmlFor="rank" className="block text-sm font-medium">
+          Rank <span className="text-grey-500">(optional)</span>
+        </label>
+        <input
+          id="rank"
+          name="rank"
+          type="text"
+          maxLength={80}
+          className="mt-1 w-full rounded border border-grey-300 px-3 py-2 text-sm"
+        />
       </div>
 
       {state?.error && (
