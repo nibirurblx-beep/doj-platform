@@ -61,3 +61,24 @@ Deploy, then run through this checklist on the live URL:
 - Security headers are set in next.config.js.
 - Keep the service role key out of git and out of the browser: it lives
   only in server environment variables.
+
+## Free-tier survival (important)
+
+- **Pause prevention:** `vercel.json` schedules a daily cron hitting
+  `/api/health`, which reads the database. Supabase free projects pause
+  after ~7 idle days; this keeps yours awake. Verify the cron exists in
+  Vercel → Project → Settings → Cron Jobs after the first deploy.
+- **Backups:** the free tier has NO automatic backups. Weekly, run a
+  manual export: Supabase dashboard → Database → Backups is unavailable
+  on free, so use the SQL Editor to spot-export critical tables, or
+  install the Supabase CLI and run
+  `supabase db dump --db-url "$DATABASE_URL" -f backup.sql`
+  (connection string from Settings → Database). Keep the file somewhere
+  private. If the community's data starts mattering, Supabase Pro
+  (~US$25/mo) adds real daily backups and removes pausing.
+
+## Discord sign-in note
+
+"Sign in with Discord" only works for accounts that have already
+connected Discord in Settings. It never creates accounts. It mints the
+session via a server-side one-time token, so no magic-link email is sent.
