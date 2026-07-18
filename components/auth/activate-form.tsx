@@ -5,7 +5,9 @@ import { useActionState } from "react";
 
 export function ActivateForm({ token }: { token: string }) {
   const [state, formAction, isPending] = useActionState(
-    (formData: FormData) => activateAccountAction(token, formData),
+    async (_prevState: unknown, formData: FormData) => {
+      return activateAccountAction(token, formData);
+    },
     null,
   );
 

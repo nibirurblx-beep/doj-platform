@@ -5,7 +5,12 @@ import { useActionState } from "react";
 import Link from "next/link";
 
 export function ForgotPasswordForm() {
-  const [state, formAction, isPending] = useActionState(forgotPasswordAction, null);
+  const [state, formAction, isPending] = useActionState(
+    async (_prevState: unknown, formData: FormData) => {
+      return forgotPasswordAction(formData);
+    },
+    null,
+  );
 
   if (state?.success) {
     return (

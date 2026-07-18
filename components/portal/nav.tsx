@@ -4,17 +4,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  exact?: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { href: "/portal", label: "Dashboard", exact: true },
   { href: "/portal/settings", label: "Settings" },
-] as const;
+];
 
-export function PortalNav() {
+const ADMIN_ITEM: NavItem = { href: "/portal/admin", label: "Administration" };
+
+export function PortalNav({ showAdmin = false }: { showAdmin?: boolean }) {
   const pathname = usePathname();
+  const items = showAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
   return (
     <nav className="space-y-1">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const isActive = item.exact
           ? pathname === item.href
           : pathname.startsWith(item.href);
