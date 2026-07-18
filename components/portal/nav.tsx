@@ -12,6 +12,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/portal", label: "Dashboard", exact: true },
+  { href: "/portal/documents", label: "Documents" },
   { href: "/portal/settings", label: "Settings" },
 ];
 
