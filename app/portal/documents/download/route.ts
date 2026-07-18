@@ -4,6 +4,7 @@ import { PERMISSIONS } from "@/lib/permissions/keys";
 import { createSupabaseServiceClient } from "@/lib/db/server";
 import { DOCUMENTS_BUCKET, isSafePath } from "@/lib/documents/storage";
 import { NextResponse, type NextRequest } from "next/server";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   const session = await getUserSession();
@@ -30,11 +31,11 @@ export async function GET(request: NextRequest) {
 
   const filename = path.split("/").pop() ?? "download";
 
-  await service.rpc("audit_log", {
-    p_action: "document.downloaded",
-    p_entity_type: "storage_object",
-    p_reason: path,
-    p_actor: session.user.id,
+  await logAudit(service, {
+    action: "document.downloaded",
+    entityType: "storage_object",
+    reason: path,
+    actor: session.user.id,
   });
 
   return new NextResponse(blob.stream(), {

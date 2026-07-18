@@ -1,5 +1,7 @@
 "use server";
 
+import { logAudit } from "@/lib/audit";
+
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { userHasPermission } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
@@ -124,10 +126,11 @@ export async function createInvitationAction(formData: FormData) {
     return { error: message };
   }
 
-  await service.rpc("audit_log", {
-    p_action: "invitation.sent",
-    p_entity_type: "invitation",
-    p_entity_id: invitation.id,
+  await logAudit(service, {
+    action: "invitation.sent",
+    entityType: "invitation",
+    entityId: invitation.id,
+    actor: user.id,
   });
 
   revalidatePath("/portal/admin/invitations");
@@ -179,10 +182,11 @@ export async function revokeInvitationAction(formData: FormData) {
     .update({ revoked_at: new Date().toISOString() })
     .eq("id", invitationId);
 
-  await service.rpc("audit_log", {
-    p_action: "invitation.revoked",
-    p_entity_type: "invitation",
-    p_entity_id: invitationId,
+  await logAudit(service, {
+    action: "invitation.revoked",
+    entityType: "invitation",
+    entityId: invitationId,
+    actor: user.id,
   });
 
   revalidatePath("/portal/admin/invitations");

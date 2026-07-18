@@ -1,5 +1,7 @@
 "use server";
 
+import { logAudit } from "@/lib/audit";
+
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { revalidatePath } from "next/cache";
 
@@ -21,11 +23,11 @@ export async function unlinkDiscordAction() {
     .eq("id", user.id);
   if (error) return { error: error.message };
 
-  await service.rpc("audit_log", {
-    p_action: "discord.unlinked",
-    p_entity_type: "profile",
-    p_entity_id: user.id,
-    p_actor: user.id,
+  await logAudit(service, {
+    action: "discord.unlinked",
+    entityType: "profile",
+    entityId: user.id,
+    actor: user.id,
   });
 
   revalidatePath("/portal/settings");

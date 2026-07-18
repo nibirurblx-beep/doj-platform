@@ -1,5 +1,6 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/audit";
 
 export async function POST() {
   const supabase = await createSupabaseServerClient();
@@ -7,10 +8,11 @@ export async function POST() {
 
   if (user) {
     const service = createSupabaseServiceClient();
-    await service.rpc("audit_log", {
-      p_action: "account.logout",
-      p_entity_type: "auth.user",
-      p_entity_id: user.id,
+    await logAudit(service, {
+      action: "account.logout",
+      entityType: "auth.user",
+      entityId: user.id,
+      actor: user.id,
     });
   }
 

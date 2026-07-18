@@ -1,5 +1,7 @@
 "use server";
 
+import { logAudit } from "@/lib/audit";
+
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { hasPermissionAnywhere } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
@@ -135,10 +137,11 @@ export async function createVacancyAction(formData: FormData) {
     return { error: insertError?.message || "Failed to create vacancy" };
   }
 
-  await service.rpc("audit_log", {
-    p_action: "vacancy.created",
-    p_entity_type: "vacancy",
-    p_entity_id: vacancy.id,
+  await logAudit(service, {
+    action: "vacancy.created",
+    entityType: "vacancy",
+    entityId: vacancy.id,
+    actor: actor.userId,
   });
 
   revalidatePath("/portal/admin/vacancies");
@@ -202,10 +205,11 @@ export async function updateVacancyAction(formData: FormData) {
     .eq("id", id);
   if (updateError) return { error: updateError.message };
 
-  await service.rpc("audit_log", {
-    p_action: "vacancy.updated",
-    p_entity_type: "vacancy",
-    p_entity_id: id,
+  await logAudit(service, {
+    action: "vacancy.updated",
+    entityType: "vacancy",
+    entityId: id,
+    actor: actor.userId,
   });
 
   revalidatePath("/portal/admin/vacancies");
@@ -248,10 +252,11 @@ export async function changeVacancyStatusAction(formData: FormData) {
     .eq("id", parsed.data.id);
   if (updateError) return { error: updateError.message };
 
-  await service.rpc("audit_log", {
-    p_action: parsed.data.action === "open" ? "vacancy.opened" : "vacancy.closed",
-    p_entity_type: "vacancy",
-    p_entity_id: parsed.data.id,
+  await logAudit(service, {
+    action: parsed.data.action === "open" ? "vacancy.opened" : "vacancy.closed",
+    entityType: "vacancy",
+    entityId: parsed.data.id,
+    actor: actor.userId,
   });
 
   revalidatePath("/portal/admin/vacancies");

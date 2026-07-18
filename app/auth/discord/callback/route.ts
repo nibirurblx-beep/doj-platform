@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from "@/lib/db/server";
 import { fetchDiscordIdentity } from "@/lib/discord/oauth";
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { logAudit } from "@/lib/audit";
 
 function settingsRedirect(result: string) {
   return NextResponse.redirect(
@@ -66,11 +67,11 @@ export async function GET(request: NextRequest) {
     return settingsRedirect("failed");
   }
 
-  await service.rpc("audit_log", {
-    p_action: "discord.linked",
-    p_entity_type: "profile",
-    p_entity_id: session.user.id,
-    p_actor: session.user.id,
+  await logAudit(service, {
+    action: "discord.linked",
+    entityType: "profile",
+    entityId: session.user.id,
+    actor: session.user.id,
   });
 
   return settingsRedirect("linked");

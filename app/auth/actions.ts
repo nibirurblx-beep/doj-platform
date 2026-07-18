@@ -5,6 +5,8 @@ import { sendInvitationEmail, sendPasswordResetEmail } from "@/lib/email/resend"
 import { generateToken } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
+import { isRateLimited } from "@/lib/security/rate-limit";
 
 // ============================================================================
 // Login
@@ -24,6 +26,10 @@ export async function loginAction(formData: FormData) {
   if (!result.success) {
     const errors = result.error.flatten().fieldErrors;
     return { error: Object.values(errors)[0]?.[0] || "Invalid input" };
+  }
+
+  if (await isRateLimited("login", { limit: 10, windowMs: 15 * 60 * 1000 })) {
+    return { error: "Too many attempts. Try again in a few minutes." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -58,11 +64,12 @@ export async function loginAction(formData: FormData) {
 
     // Log successful login
     const service = createSupabaseServiceClient();
-    await service.rpc("audit_log", {
-      p_action: "account.login",
-      p_entity_type: "auth.user",
-      p_entity_id: user.id,
-      p_after: JSON.stringify({ email: user.email }),
+    await logAudit(service, {
+      action: "account.login",
+      entityType: "auth.user",
+      entityId: user.id,
+      actor: user.id,
+      after: { email: user.email },
     });
   }
 
@@ -79,10 +86,11 @@ export async function logoutAction() {
   
   if (user) {
     const service = createSupabaseServiceClient();
-    await service.rpc("audit_log", {
-      p_action: "account.logout",
-      p_entity_type: "auth.user",
-      p_entity_id: user.id,
+    await logAudit(service, {
+      action: "account.logout",
+      actor: user.id,
+      entityType: "auth.user",
+      entityId: user.id,
     });
   }
 
@@ -184,20 +192,22 @@ export async function activateAccountAction(
     .eq("id", inv.id);
 
   // Audit log
-  await service.rpc("audit_log", {
-    p_action: "account.activated",
-    p_entity_type: "auth.user",
-    p_entity_id: userId,
-    p_org_id: inv.organisation_id,
-    p_after: JSON.stringify({ email: inv.email }),
+  await logAudit(service, {
+    action: "account.activated",
+      actor: userId,
+    entityType: "auth.user",
+    entityId: userId,
+    orgId: inv.organisation_id,
+    after: { email: inv.email },
   });
 
   // Audit invitation accepted
-  await service.rpc("audit_log", {
-    p_action: "invitation.accepted",
-    p_entity_type: "invitations",
-    p_entity_id: inv.id,
-    p_org_id: inv.organisation_id,
+  await logAudit(service, {
+    action: "invitation.accepted",
+    entityType: "invitations",
+    entityId: inv.id,
+    orgId: inv.organisation_id,
+    actor: userId,
   });
 
   redirect("/portal");
@@ -250,10 +260,11 @@ export async function forgotPasswordAction(formData: FormData) {
   }
 
   // Audit log
-  await service.rpc("audit_log", {
-    p_action: "password.reset.requested",
-    p_entity_type: "auth.user",
-    p_entity_id: user.id,
+  await logAudit(service, {
+    action: "password.reset.requested",
+      actor: user.id,
+    entityType: "auth.user",
+    entityId: user.id,
   });
 
   return { success: true };
@@ -305,10 +316,11 @@ export async function resetPasswordAction(formData: FormData) {
   });
 
   // Audit log
-  await service.rpc("audit_log", {
-    p_action: "password.reset.completed",
-    p_entity_type: "auth.user",
-    p_entity_id: userId,
+  await logAudit(service, {
+    action: "password.reset.completed",
+      actor: userId,
+    entityType: "auth.user",
+    entityId: userId,
   });
 
   return { success: true };

@@ -1,5 +1,7 @@
 "use server";
 
+import { logAudit } from "@/lib/audit";
+
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { hasPermissionAnywhere } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
@@ -64,12 +66,13 @@ export async function changeApplicationStatusAction(formData: FormData) {
     .eq("id", parsed.data.id);
   if (updateError) return { error: updateError.message };
 
-  await service.rpc("audit_log", {
-    p_action: `application.status.${parsed.data.status}`,
-    p_entity_type: "application",
-    p_entity_id: parsed.data.id,
-    p_before: { status: application.status },
-    p_after: { status: parsed.data.status },
+  await logAudit(service, {
+    action: `application.status.${parsed.data.status}`,
+    entityType: "application",
+    entityId: parsed.data.id,
+    before: { status: application.status },
+    after: { status: parsed.data.status },
+    actor: actor.userId,
   });
 
   revalidatePath("/portal/admin/applications");
@@ -119,10 +122,11 @@ export async function addApplicationNoteAction(formData: FormData) {
     return { error: insertError?.message || "Failed to add note" };
   }
 
-  await service.rpc("audit_log", {
-    p_action: "application.note.added",
-    p_entity_type: "application",
-    p_entity_id: parsed.data.applicationId,
+  await logAudit(service, {
+    action: "application.note.added",
+    entityType: "application",
+    entityId: parsed.data.applicationId,
+    actor: actor.userId,
   });
 
   revalidatePath(`/portal/admin/applications/${parsed.data.applicationId}`);

@@ -1,5 +1,7 @@
 "use server";
 
+import { logAudit } from "@/lib/audit";
+
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { hasPermissionAnywhere } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
@@ -130,10 +132,11 @@ export async function createContentAction(formData: FormData) {
     return { error: insertError?.message || "Failed to create" };
   }
 
-  await service.rpc("audit_log", {
-    p_action: "content.created",
-    p_entity_type: "content_post",
-    p_entity_id: post.id,
+  await logAudit(service, {
+    action: "content.created",
+    entityType: "content_post",
+    entityId: post.id,
+    actor: actor.userId,
   });
 
   revalidatePath("/portal/admin/content");
@@ -200,10 +203,11 @@ export async function updateContentAction(formData: FormData) {
 
   if (updateError) return { error: updateError.message };
 
-  await service.rpc("audit_log", {
-    p_action: "content.updated",
-    p_entity_type: "content_post",
-    p_entity_id: id,
+  await logAudit(service, {
+    action: "content.updated",
+    entityType: "content_post",
+    entityId: id,
+    actor: actor.userId,
   });
 
   revalidatePath("/portal/admin/content");
@@ -278,10 +282,11 @@ export async function changeContentStatusAction(formData: FormData) {
     .eq("id", id);
   if (updateError) return { error: updateError.message };
 
-  await service.rpc("audit_log", {
-    p_action: auditAction,
-    p_entity_type: "content_post",
-    p_entity_id: id,
+  await logAudit(service, {
+    action: auditAction,
+    entityType: "content_post",
+    entityId: id,
+    actor: actor.userId,
   });
 
   revalidatePath("/portal/admin/content");

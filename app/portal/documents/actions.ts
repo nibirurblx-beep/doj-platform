@@ -1,5 +1,7 @@
 "use server";
 
+import { logAudit } from "@/lib/audit";
+
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { hasPermissionAnywhere } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
@@ -66,11 +68,11 @@ export async function uploadDocumentAction(formData: FormData) {
     return { error: uploadError.message };
   }
 
-  await service.rpc("audit_log", {
-    p_action: "document.uploaded",
-    p_entity_type: "storage_object",
-    p_reason: path,
-    p_actor: actor.userId,
+  await logAudit(service, {
+    action: "document.uploaded",
+    entityType: "storage_object",
+    reason: path,
+    actor: actor.userId,
   });
 
   revalidatePath("/portal/documents");
@@ -123,11 +125,11 @@ export async function deleteDocumentAction(formData: FormData) {
     .remove([path]);
   if (error) return { error: error.message };
 
-  await service.rpc("audit_log", {
-    p_action: "document.deleted",
-    p_entity_type: "storage_object",
-    p_reason: path,
-    p_actor: actor.userId,
+  await logAudit(service, {
+    action: "document.deleted",
+    entityType: "storage_object",
+    reason: path,
+    actor: actor.userId,
   });
 
   revalidatePath("/portal/documents");

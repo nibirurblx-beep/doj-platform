@@ -1,5 +1,7 @@
 "use server";
 
+import { logAudit } from "@/lib/audit";
+
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { hasPermissionAnywhere, userHasPermission } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
@@ -154,12 +156,13 @@ export async function convertApplicantAction(formData: FormData) {
     return { error: employeeError?.message || "Failed to create employee record" };
   }
 
-  await service.rpc("audit_log", {
-    p_action: "employee.created",
-    p_entity_type: "employee",
-    p_entity_id: employee.id,
-    p_org_id: input.organisationId,
-    p_after: { from_application: input.applicationId },
+  await logAudit(service, {
+    action: "employee.created",
+    entityType: "employee",
+    entityId: employee.id,
+    orgId: input.organisationId,
+    after: { from_application: input.applicationId },
+    actor: user.id,
   });
 
   revalidatePath(`/portal/admin/applications/${input.applicationId}`);

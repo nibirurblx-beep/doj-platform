@@ -1,5 +1,7 @@
 "use server";
 
+import { logAudit } from "@/lib/audit";
+
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { z } from "zod";
 
@@ -93,10 +95,11 @@ export async function submitApplicationAction(formData: FormData) {
     return { error: insertError?.message || "Failed to submit application" };
   }
 
-  await service.rpc("audit_log", {
-    p_action: "application.submitted",
-    p_entity_type: "application",
-    p_entity_id: application.id,
+  await logAudit(service, {
+    action: "application.submitted",
+    entityType: "application",
+    entityId: application.id,
+    actor: user.id,
   });
 
   return {

@@ -1,8 +1,11 @@
 "use server";
 
+import { logAudit } from "@/lib/audit";
+
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { isRateLimited } from "@/lib/security/rate-limit";
 
 const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -24,6 +27,10 @@ export async function registerApplicantAction(formData: FormData) {
   if (!parsed.success) {
     const errors = parsed.error.flatten().fieldErrors;
     return { error: Object.values(errors)[0]?.[0] || "Invalid input" };
+  }
+
+  if (await isRateLimited("register", { limit: 5, windowMs: 60 * 60 * 1000 })) {
+    return { error: "Too many accounts created from this connection. Try later." };
   }
 
   const input = parsed.data;
@@ -51,10 +58,11 @@ export async function registerApplicantAction(formData: FormData) {
     })
     .eq("id", signUp.user.id);
 
-  await service.rpc("audit_log", {
-    p_action: "account.registered",
-    p_entity_type: "auth.user",
-    p_entity_id: signUp.user.id,
+  await logAudit(service, {
+    action: "account.registered",
+    entityType: "auth.user",
+    entityId: signUp.user.id,
+    actor: signUp.user.id,
   });
 
   // If the Supabase project requires email confirmation there is no session
