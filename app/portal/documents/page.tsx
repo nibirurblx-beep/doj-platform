@@ -1,43 +1,26 @@
 import { requireActiveUser } from "@/lib/auth/session";
 import { hasPermissionAnywhere } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
+import { createSupabaseServiceClient } from "@/lib/db/server";
 import {
-  isDriveConfigured,
-  getDriveRootFolderId,
-  listFolder,
-  getItem,
-  isWithinRoot,
-} from "@/lib/google/drive";
+  DOCUMENTS_BUCKET,
+  FOLDER_PLACEHOLDER,
+  isSafePath,
+  formatSize,
+} from "@/lib/documents/storage";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { UploadForm, NewFolderForm, DeleteButton } from "./toolbar";
 
 export const metadata = { title: "Documents" };
 
-function formatSize(bytes: number | null): string {
-  if (bytes === null) return "—";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(value: string | null): string {
+function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
-}
-
-function fileKindLabel(mimeType: string): string {
-  if (mimeType.includes("google-apps.document")) return "Google Doc";
-  if (mimeType.includes("google-apps.spreadsheet")) return "Google Sheet";
-  if (mimeType.includes("google-apps.presentation")) return "Google Slides";
-  if (mimeType.includes("pdf")) return "PDF";
-  if (mimeType.includes("image/")) return "Image";
-  if (mimeType.includes("wordprocessingml")) return "Word";
-  if (mimeType.includes("spreadsheetml")) return "Excel";
-  return "File";
 }
 
 export default async function DocumentsPage({
@@ -50,81 +33,88 @@ export default async function DocumentsPage({
     redirect("/portal");
   }
 
-  if (!isDriveConfigured()) {
-    return (
-      <div className="rounded border border-amber-200 bg-amber-50 p-6">
-        <h2 className="font-display text-lg text-amber-900">
-          Document repository not configured
-        </h2>
-        <p className="mt-2 text-sm text-amber-900">
-          Google Drive credentials are missing. Follow{" "}
-          <code className="rounded bg-amber-100 px-1">
-            docs/setup-google-drive.md
-          </code>{" "}
-          to create a service account, share the repository folder with it,
-          and add the three environment variables. Then restart the server.
-        </p>
-      </div>
-    );
-  }
+  const [canUpload, canDelete] = await Promise.all([
+    hasPermissionAnywhere(PERMISSIONS.DOCUMENTS_CREATE),
+    hasPermissionAnywhere(PERMISSIONS.DOCUMENTS_ARCHIVE),
+  ]);
 
   const params = await searchParams;
-  const rootId = getDriveRootFolderId();
-  const folderId = params.folder ?? rootId;
+  const folder =
+    typeof params.folder === "string" && isSafePath(params.folder)
+      ? params.folder
+      : "";
 
-  // Never allow browsing outside the repository root
-  if (folderId !== rootId && !(await isWithinRoot(folderId))) {
-    redirect("/portal/documents");
-  }
+  const service = createSupabaseServiceClient();
+  const { data: entries, error } = await service.storage
+    .from(DOCUMENTS_BUCKET)
+    .list(folder || undefined, {
+      limit: 500,
+      sortBy: { column: "name", order: "asc" },
+    });
 
-  let items;
-  let folderName = "Documents";
-  let parentLink: string | null = null;
-
-  try {
-    items = await listFolder(folderId);
-    if (folderId !== rootId) {
-      const folder = await getItem(folderId);
-      folderName = folder.name;
-      const parent = folder.parents[0];
-      parentLink =
-        parent && parent !== rootId
-          ? `/portal/documents?folder=${parent}`
-          : "/portal/documents";
-    }
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown Drive error";
+  if (error) {
     return (
       <div className="rounded border border-red-200 bg-red-50 p-6">
         <h2 className="font-display text-lg text-red-900">
-          Could not reach Google Drive
+          Could not load documents
         </h2>
-        <p className="mt-2 text-sm text-red-900">{message}</p>
+        <p className="mt-2 text-sm text-red-900">{error.message}</p>
         <p className="mt-2 text-sm text-red-900">
-          Check the service account has access to the repository folder and
-          that the Drive API is enabled for the project.
+          If this is a new install, run migration 0013_documents_storage.sql
+          to create the storage bucket.
         </p>
       </div>
     );
   }
 
+  // Storage list returns folders as entries without metadata/id
+  const folders = (entries ?? []).filter((e) => !e.id);
+  const files = (entries ?? []).filter(
+    (e) => e.id && e.name !== FOLDER_PLACEHOLDER,
+  );
+
+  const crumbs = folder ? folder.split("/") : [];
+  const parentFolder = crumbs.slice(0, -1).join("/");
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        {parentLink && (
-          <Link
-            href={parentLink}
-            className="rounded border border-grey-300 bg-white px-2.5 py-1 text-sm hover:border-navy-900"
-          >
-            ← Up
-          </Link>
-        )}
-        <h2 className="font-display text-xl">{folderName}</h2>
+      {/* Breadcrumbs */}
+      <div className="flex flex-wrap items-center gap-1 text-sm">
+        <Link href="/portal/documents" className="text-navy-900 underline">
+          Documents
+        </Link>
+        {crumbs.map((crumb, i) => {
+          const path = crumbs.slice(0, i + 1).join("/");
+          const isLast = i === crumbs.length - 1;
+          return (
+            <span key={path} className="flex items-center gap-1">
+              <span className="text-grey-400">/</span>
+              {isLast ? (
+                <span className="font-medium">{crumb}</span>
+              ) : (
+                <Link
+                  href={`/portal/documents?folder=${encodeURIComponent(path)}`}
+                  className="text-navy-900 underline"
+                >
+                  {crumb}
+                </Link>
+              )}
+            </span>
+          );
+        })}
       </div>
 
+      {/* Toolbar */}
+      {canUpload && (
+        <div className="flex flex-wrap items-center gap-6 rounded border border-grey-200 bg-grey-050 p-3">
+          <UploadForm folder={folder} />
+          <NewFolderForm folder={folder} />
+        </div>
+      )}
+
+      {/* Listing */}
       <div className="rounded border border-grey-200 bg-white">
-        {items.length === 0 ? (
+        {folders.length === 0 && files.length === 0 ? (
           <p className="px-5 py-6 text-sm text-grey-600">
             This folder is empty.
           </p>
@@ -133,50 +123,83 @@ export default async function DocumentsPage({
             <thead>
               <tr className="border-b border-grey-200 text-left text-grey-600">
                 <th className="px-5 py-3 font-medium">Name</th>
-                <th className="px-5 py-3 font-medium">Kind</th>
                 <th className="px-5 py-3 font-medium">Size</th>
-                <th className="px-5 py-3 font-medium">Modified</th>
+                <th className="px-5 py-3 font-medium">Updated</th>
+                {canDelete && <th className="px-5 py-3"></th>}
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item.id} className="border-b border-grey-100 hover:bg-grey-050">
-                  <td className="px-5 py-3">
-                    {item.isFolder ? (
-                      <Link
-                        href={`/portal/documents?folder=${item.id}`}
-                        className="font-medium text-navy-900 hover:underline"
-                      >
-                        📁 {item.name}
-                      </Link>
-                    ) : (
-                      <a
-                        href={`/portal/documents/download/${item.id}`}
-                        className="text-navy-900 hover:underline"
-                      >
-                        {item.name}
-                      </a>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 text-grey-600">
-                    {item.isFolder ? "Folder" : fileKindLabel(item.mimeType)}
-                  </td>
-                  <td className="px-5 py-3 text-grey-600">
-                    {item.isFolder ? "—" : formatSize(item.size)}
-                  </td>
-                  <td className="px-5 py-3 text-grey-600">
-                    {formatDate(item.modifiedTime)}
+              {folder && (
+                <tr className="border-b border-grey-100">
+                  <td className="px-5 py-3" colSpan={canDelete ? 4 : 3}>
+                    <Link
+                      href={
+                        parentFolder
+                          ? `/portal/documents?folder=${encodeURIComponent(parentFolder)}`
+                          : "/portal/documents"
+                      }
+                      className="text-navy-900 hover:underline"
+                    >
+                      ← Up
+                    </Link>
                   </td>
                 </tr>
-              ))}
+              )}
+              {folders.map((entry) => {
+                const path = folder ? `${folder}/${entry.name}` : entry.name;
+                return (
+                  <tr key={path} className="border-b border-grey-100 hover:bg-grey-050">
+                    <td className="px-5 py-3">
+                      <Link
+                        href={`/portal/documents?folder=${encodeURIComponent(path)}`}
+                        className="font-medium text-navy-900 hover:underline"
+                      >
+                        📁 {entry.name}
+                      </Link>
+                    </td>
+                    <td className="px-5 py-3 text-grey-600">—</td>
+                    <td className="px-5 py-3 text-grey-600">—</td>
+                    {canDelete && <td className="px-5 py-3"></td>}
+                  </tr>
+                );
+              })}
+              {files.map((entry) => {
+                const path = folder ? `${folder}/${entry.name}` : entry.name;
+                const meta = entry.metadata as {
+                  size?: number;
+                } | null;
+                return (
+                  <tr key={path} className="border-b border-grey-100 hover:bg-grey-050">
+                    <td className="px-5 py-3">
+                      <a
+                        href={`/portal/documents/download?path=${encodeURIComponent(path)}`}
+                        className="text-navy-900 hover:underline"
+                      >
+                        {entry.name}
+                      </a>
+                    </td>
+                    <td className="px-5 py-3 text-grey-600">
+                      {formatSize(meta?.size ?? null)}
+                    </td>
+                    <td className="px-5 py-3 text-grey-600">
+                      {formatDate(entry.updated_at)}
+                    </td>
+                    {canDelete && (
+                      <td className="px-5 py-3 text-right">
+                        <DeleteButton path={path} />
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
 
       <p className="text-xs text-grey-500">
-        Files are stored in Google Drive and served through the portal.
-        Google-native documents download as PDF.
+        Stored privately in Supabase Storage. 20 MB per file.
+        {canUpload ? "" : " Ask an administrator to add or remove files."}
       </p>
     </div>
   );
