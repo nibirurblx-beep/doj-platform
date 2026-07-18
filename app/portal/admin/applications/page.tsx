@@ -42,9 +42,7 @@ export default async function ApplicationsAdminPage({
     (() => {
       let q = service
         .from("applications")
-        .select(
-          "id, app_number, status, submitted_at, vacancies(title), profiles:user_id(display_name)",
-        )
+        .select("id, app_number, status, submitted_at, user_id, vacancies(title)")
         .order("submitted_at", { ascending: false })
         .limit(200);
       if (statusFilter) q = q.eq("status", statusFilter);
@@ -54,6 +52,19 @@ export default async function ApplicationsAdminPage({
   ]);
 
   const applications = applicationsResult.data ?? [];
+
+  // applications.user_id references auth.users, so PostgREST cannot embed
+  // profiles directly; fetch them in a second query and map.
+  const userIds = [...new Set(applications.map((a) => a.user_id))];
+  const { data: profiles } = userIds.length
+    ? await service
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", userIds)
+    : { data: [] };
+  const nameById = new Map(
+    (profiles ?? []).map((p) => [p.id, p.display_name] as const),
+  );
 
   return (
     <div className="space-y-4">
@@ -115,8 +126,7 @@ export default async function ApplicationsAdminPage({
                   (app.vacancies as unknown as { title: string } | null)
                     ?.title ?? "—";
                 const applicantName =
-                  (app.profiles as unknown as { display_name: string } | null)
-                    ?.display_name || "Unnamed applicant";
+                  nameById.get(app.user_id) || "Unnamed applicant";
                 return (
                   <tr key={app.id} className="border-b border-grey-100 hover:bg-grey-050">
                     <td className="px-5 py-3">

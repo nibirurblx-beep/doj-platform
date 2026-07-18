@@ -4,6 +4,7 @@ import { PERMISSIONS } from "@/lib/permissions/keys";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { StatusControls, NoteForm } from "../review-controls";
+import { ConvertForm } from "../convert-form";
 
 interface Question {
   id: string;
@@ -49,26 +50,71 @@ export default async function ApplicationReviewPage({
   const { data: app } = await service
     .from("applications")
     .select(
-      "id, app_number, status, submitted_at, answers, vacancies(title, questions), profiles:user_id(display_name, roblox_username)",
+      "id, app_number, status, submitted_at, answers, user_id, vacancies(title, questions, organisation_id)",
     )
     .eq("id", id)
     .single();
   if (!app) notFound();
 
+  const canCreateEmployee = await hasPermissionAnywhere(
+    PERMISSIONS.EMPLOYEES_CREATE,
+  );
+
+  // Conversion panel data (only when accepted and permitted)
+  let conversion: {
+    alreadyEmployee: boolean;
+    organisations: Array<{ id: string; name: string }>;
+    roles: Array<{ id: string; name: string; organisation_id: string | null }>;
+    offices: Array<{ id: string; name: string; organisation_id: string }>;
+  } | null = null;
+
+  if (app.status === "accepted" && canCreateEmployee) {
+    const [emp, orgs, roles, offices] = await Promise.all([
+      service
+        .from("employees")
+        .select("id")
+        .eq("user_id", app.user_id)
+        .limit(1),
+      service.from("organisations").select("id, name").order("name"),
+      service
+        .from("roles")
+        .select("id, name, organisation_id")
+        .not("organisation_id", "is", null)
+        .order("name"),
+      service.from("offices").select("id, name, organisation_id").order("name"),
+    ]);
+    conversion = {
+      alreadyEmployee: Boolean(emp.data && emp.data.length > 0),
+      organisations: orgs.data ?? [],
+      roles: roles.data ?? [],
+      offices: offices.data ?? [],
+    };
+  }
+
   const { data: notes } = await service
     .from("application_notes")
-    .select("id, body, created_at, profiles:author_id(display_name)")
+    .select("id, body, created_at, author_id")
     .eq("application_id", id)
     .order("created_at", { ascending: true });
+
+  // Fetch all involved profiles in one query (applicant + note authors)
+  const profileIds = [
+    ...new Set([app.user_id, ...(notes ?? []).map((n) => n.author_id)]),
+  ];
+  const { data: profileRows } = await service
+    .from("profiles")
+    .select("id, display_name, roblox_username")
+    .in("id", profileIds);
+  const profileById = new Map(
+    (profileRows ?? []).map((p) => [p.id, p] as const),
+  );
 
   const vacancy = app.vacancies as unknown as {
     title: string;
     questions: Question[];
+    organisation_id: string;
   } | null;
-  const applicant = app.profiles as unknown as {
-    display_name: string;
-    roblox_username: string | null;
-  } | null;
+  const applicant = profileById.get(app.user_id) ?? null;
   const answers = (app.answers as Record<string, string>) ?? {};
 
   return (
@@ -152,6 +198,28 @@ export default async function ApplicationReviewPage({
             </section>
           )}
 
+          {/* Conversion */}
+          {conversion && (
+            <section className="rounded border border-grey-200 bg-white p-5">
+              <h4 className="font-display text-lg">Convert to employee</h4>
+              {conversion.alreadyEmployee ? (
+                <p className="mt-2 text-sm text-grey-600">
+                  This person already has an employee record.
+                </p>
+              ) : (
+                <div className="mt-3">
+                  <ConvertForm
+                    applicationId={app.id}
+                    organisations={conversion.organisations}
+                    roles={conversion.roles}
+                    offices={conversion.offices}
+                    defaultOrganisationId={vacancy?.organisation_id ?? ""}
+                  />
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Internal notes */}
           <section className="rounded border border-grey-200 bg-white p-5">
             <h4 className="font-display text-lg">Internal notes</h4>
@@ -160,9 +228,7 @@ export default async function ApplicationReviewPage({
             </p>
             <div className="mt-3 space-y-3">
               {(notes ?? []).map((note) => {
-                const author = note.profiles as unknown as {
-                  display_name: string;
-                } | null;
+                const author = profileById.get(note.author_id) ?? null;
                 return (
                   <div
                     key={note.id}
