@@ -62,6 +62,10 @@ export const PERMISSIONS = {
   CONTENT_ARCHIVE: "content.archive",
   CONTENT_CATEGORIES_MANAGE: "content.categories.manage",
 
+  // Vacancies (added in migration 0009)
+  VACANCIES_MANAGE: "vacancies.manage",
+  VACANCIES_PUBLISH: "vacancies.publish",
+
   // Administration
   USERS_INVITE: "users.invite",
   USERS_MANAGE: "users.manage",

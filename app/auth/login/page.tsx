@@ -11,6 +11,12 @@ export default function LoginPage() {
         Enter your email and password to access the portal.
       </p>
       <LoginForm />
+      <p className="text-center text-sm text-grey-600">
+        Applying for a position?{" "}
+        <a href="/auth/register" className="text-navy-900 underline">
+          Create an applicant account
+        </a>
+      </p>
     </div>
   );
 }

@@ -67,3 +67,10 @@ insert into public.permissions (key, category, description) values
   ('audit_logs.view',                      'administration','View audit logs'),
   ('settings.manage',                      'administration','Manage platform settings')
 on conflict (key) do nothing;
+
+-- Vacancies (added alongside migration 0009)
+insert into public.permissions (key, description)
+values
+  ('vacancies.manage', 'Create and edit vacancies and their application questions'),
+  ('vacancies.publish', 'Open and close vacancies for applications')
+on conflict (key) do nothing;
