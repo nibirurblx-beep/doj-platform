@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    strict: true,
+  turbopack: {
+    root: __dirname,
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
