@@ -8,7 +8,7 @@ import {
   updateVacancyAction,
   changeVacancyStatusAction,
   type VacancyQuestion,
-} from "@/app/portal/admin/vacancies/actions";
+} from "@/app/portal/employment/vacancies/actions";
 
 export interface VacancyInput {
   id?: string;

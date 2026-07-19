@@ -175,8 +175,8 @@ export async function createContentAction(formData: FormData) {
     actor: actor.userId,
   });
 
-  revalidatePath("/portal/admin/content");
-  redirect(`/portal/admin/content/${post.id}`);
+  revalidatePath("/portal/content");
+  redirect(`/portal/content/${post.id}`);
 }
 
 // ----------------------------------------------------------------------------
@@ -254,7 +254,7 @@ export async function updateContentAction(formData: FormData) {
     actor: actor.userId,
   });
 
-  revalidatePath("/portal/admin/content");
+  revalidatePath("/portal/content");
   revalidatePath("/news");
   revalidatePath(`/news/${slug}`);
   revalidatePath(`/p/${slug}`);
@@ -333,7 +333,7 @@ export async function changeContentStatusAction(formData: FormData) {
     actor: actor.userId,
   });
 
-  revalidatePath("/portal/admin/content");
+  revalidatePath("/portal/content");
   revalidatePath("/");
   revalidatePath("/news");
   revalidatePath(`/news/${post.slug}`);

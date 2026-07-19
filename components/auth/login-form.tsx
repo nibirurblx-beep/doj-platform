@@ -4,7 +4,7 @@ import { loginAction } from "@/app/auth/actions";
 import { useActionState } from "react";
 import Link from "next/link";
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [state, formAction, isPending] = useActionState(
     async (_prevState: unknown, formData: FormData) => {
       return loginAction(formData);
@@ -14,6 +14,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      {next && <input type="hidden" name="next" value={next} />}
       {state?.error && (
         <div className="rounded border-l-4 border-signal-red bg-red-50 p-4">
           <p className="text-sm text-signal-red">{state.error}</p>

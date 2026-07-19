@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/db/server";
 import { isDiscordConfigured } from "@/lib/discord/oauth";
 import { UnlinkDiscordButton } from "./unlink-button";
+import { ProfileForm } from "./profile-form";
 
 const DISCORD_MESSAGES: Record<string, { text: string; tone: string }> = {
   linked: { text: "Discord account linked.", tone: "bg-green-50 text-green-800" },
@@ -58,22 +59,17 @@ export default async function SettingsPage({
 
       <div className="rounded border border-grey-200 bg-white p-6">
         <h2 className="font-medium">Profile</h2>
-        <div className="mt-4 space-y-4">
-          <div>
-            <p className="text-sm text-grey-600">Display name</p>
-            <p className="mt-1 text-sm font-medium">{user?.displayName}</p>
-          </div>
-          <div>
-            <p className="text-sm text-grey-600">Email</p>
-            <p className="mt-1 text-sm font-medium">{user?.email}</p>
-          </div>
-          {user?.robloxUsername && (
-            <div>
-              <p className="text-sm text-grey-600">Roblox username</p>
-              <p className="mt-1 text-sm font-medium">{user.robloxUsername}</p>
-            </div>
-          )}
+        <div className="mt-4">
+          <ProfileForm
+            displayName={user?.displayName ?? ""}
+            email={user?.email ?? ""}
+          />
         </div>
+        {user?.robloxUsername && (
+          <p className="mt-4 text-sm text-grey-600">
+            Roblox username: <span className="font-medium">{user.robloxUsername}</span>
+          </p>
+        )}
       </div>
 
       <div className="rounded border border-grey-200 bg-white p-6">

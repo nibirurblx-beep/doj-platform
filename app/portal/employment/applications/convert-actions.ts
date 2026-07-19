@@ -165,8 +165,8 @@ export async function convertApplicantAction(formData: FormData) {
     actor: user.id,
   });
 
-  revalidatePath(`/portal/admin/applications/${input.applicationId}`);
-  revalidatePath("/portal/admin/employees");
+  revalidatePath(`/portal/employment/applications/${input.applicationId}`);
+  revalidatePath("/portal/employment/employees");
   return {
     success: true,
     message: `Employee created: ${employee.employee_number}`,

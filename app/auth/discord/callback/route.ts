@@ -155,5 +155,6 @@ async function handleLogin(identity: DiscordIdentity) {
     reason: "discord",
   });
 
-  return redirectTo("/portal");
+  const { isStaffUser } = await import("@/lib/auth/session");
+  return redirectTo((await isStaffUser(profile.id)) ? "/portal" : "/");
 }

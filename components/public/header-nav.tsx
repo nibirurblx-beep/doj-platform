@@ -2,6 +2,120 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
+import { createSupabaseBrowserClient } from "@/lib/db/client";
+
+interface AuthState {
+  loaded: boolean;
+  name: string | null;
+  isStaff: boolean;
+}
+
+/** Signed-in status for the public header. RLS: own profile + own memberships. */
+function useAuthState(): AuthState {
+  const [state, setState] = useState<AuthState>({
+    loaded: false,
+    name: null,
+    isStaff: false,
+  });
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    let cancelled = false;
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        if (!cancelled) setState({ loaded: true, name: null, isStaff: false });
+        return;
+      }
+      const [{ data: profile }, { count }] = await Promise.all([
+        supabase.from("profiles").select("display_name").eq("id", user.id).single(),
+        supabase
+          .from("memberships")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id),
+      ]);
+      if (!cancelled) {
+        setState({
+          loaded: true,
+          name: profile?.display_name || user.email || "Account",
+          isStaff: (count ?? 0) > 0,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return state;
+}
+
+function AuthLinks({ auth, mobile }: { auth: AuthState; mobile?: boolean }) {
+  if (!auth.loaded || !auth.name) {
+    return (
+      <Link
+        href="/auth/login"
+        className={
+          mobile
+            ? "block rounded border border-navy-400 px-3 py-2 text-center text-sm"
+            : "rounded border border-navy-400 px-3 py-1.5 hover:border-white"
+        }
+      >
+        Sign in
+      </Link>
+    );
+  }
+
+  const destination = auth.isStaff
+    ? { href: "/portal", label: "Staff portal" }
+    : { href: "/applicant", label: "My applications" };
+
+  if (mobile) {
+    return (
+      <div className="space-y-2">
+        <p className="px-2 text-xs text-navy-100">Signed in as {auth.name}</p>
+        <Link
+          href={destination.href}
+          className="block rounded border border-navy-400 px-3 py-2 text-center text-sm"
+        >
+          {destination.label}
+        </Link>
+        <form action="/auth/logout" method="post">
+          <button
+            type="submit"
+            className="w-full rounded px-3 py-2 text-center text-sm text-navy-100 hover:text-white"
+          >
+            Sign out
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-3">
+      <span className="max-w-[140px] truncate text-xs text-navy-100" title={auth.name}>
+        {auth.name}
+      </span>
+      <Link
+        href={destination.href}
+        className="rounded border border-navy-400 px-3 py-1.5 hover:border-white"
+      >
+        {destination.label}
+      </Link>
+      <form action="/auth/logout" method="post" className="inline">
+        <button
+          type="submit"
+          className="text-xs text-navy-100 underline-offset-4 hover:text-white hover:underline"
+        >
+          Sign out
+        </button>
+      </form>
+    </span>
+  );
+}
 
 export interface NavItem {
   href: string;
@@ -17,6 +131,7 @@ export function HeaderNav({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [deptOpen, setDeptOpen] = useState(false);
+  const auth = useAuthState();
   const deptRef = useRef<HTMLLIElement>(null);
 
   // Close the desktop dropdown on outside click / escape
@@ -89,12 +204,7 @@ export function HeaderNav({
             </li>
           ))}
           <li>
-            <Link
-              href="/auth/login"
-              className="rounded border border-navy-400 px-3 py-1.5 hover:border-white"
-            >
-              Sign in
-            </Link>
+            <AuthLinks auth={auth} />
           </li>
         </ul>
       </nav>
@@ -150,13 +260,7 @@ export function HeaderNav({
               </li>
             ))}
             <li className="mt-2">
-              <Link
-                href="/auth/login"
-                onClick={() => setMobileOpen(false)}
-                className="block rounded border border-navy-400 px-3 py-2 text-center text-sm"
-              >
-                Sign in
-              </Link>
+              <AuthLinks auth={auth} mobile />
             </li>
           </ul>
         </nav>

@@ -144,8 +144,8 @@ export async function createVacancyAction(formData: FormData) {
     actor: actor.userId,
   });
 
-  revalidatePath("/portal/admin/vacancies");
-  redirect(`/portal/admin/vacancies/${vacancy.id}`);
+  revalidatePath("/portal/employment/vacancies");
+  redirect(`/portal/employment/vacancies/${vacancy.id}`);
 }
 
 export async function updateVacancyAction(formData: FormData) {
@@ -212,7 +212,7 @@ export async function updateVacancyAction(formData: FormData) {
     actor: actor.userId,
   });
 
-  revalidatePath("/portal/admin/vacancies");
+  revalidatePath("/portal/employment/vacancies");
   revalidatePath("/careers");
   revalidatePath(`/careers/${slug}`);
   return { success: true, message: "Saved" };
@@ -259,7 +259,7 @@ export async function changeVacancyStatusAction(formData: FormData) {
     actor: actor.userId,
   });
 
-  revalidatePath("/portal/admin/vacancies");
+  revalidatePath("/portal/employment/vacancies");
   revalidatePath("/careers");
   revalidatePath(`/careers/${vacancy.slug}`);
   return { success: true, message: "Status updated" };

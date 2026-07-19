@@ -20,7 +20,7 @@ export default async function VacanciesAdminPage() {
       <div className="flex items-center justify-between">
         <h3 className="font-display text-lg">Vacancies</h3>
         <Link
-          href="/portal/admin/vacancies/new"
+          href="/portal/employment/vacancies/new"
           className="rounded bg-navy-900 px-3 py-1.5 text-sm text-white hover:bg-navy-800"
         >
           New vacancy
@@ -55,7 +55,7 @@ export default async function VacanciesAdminPage() {
                   <tr key={vacancy.id} className="border-b border-grey-100 hover:bg-grey-050">
                     <td className="px-5 py-3">
                       <Link
-                        href={`/portal/admin/vacancies/${vacancy.id}`}
+                        href={`/portal/employment/vacancies/${vacancy.id}`}
                         className="font-medium text-navy-900 hover:underline"
                       >
                         {vacancy.title}

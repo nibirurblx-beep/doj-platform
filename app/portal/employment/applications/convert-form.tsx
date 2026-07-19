@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { convertApplicantAction } from "@/app/portal/admin/applications/convert-actions";
+import { convertApplicantAction } from "@/app/portal/employment/applications/convert-actions";
 
 type ActionResult = { error?: string; success?: boolean; message?: string } | null;
 

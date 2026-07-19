@@ -277,17 +277,28 @@ export async function createDivisionAction(formData: FormData) {
   }
 
   const service = createSupabaseServiceClient();
+
+  // offices.slug is required and unique per organisation
+  const slug = parsed.data.name
+    .trim()
+    .toLowerCase()
+    .replace(/['\u2019]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "division";
+
   const { data: division, error } = await service
     .from("offices")
     .insert({
       organisation_id: parsed.data.organisationId,
       name: parsed.data.name.trim(),
+      slug,
     })
     .select("id")
     .single();
   if (error || !division) {
     if (error?.message.includes("duplicate")) {
-      return { error: "A division with that name already exists there" };
+      return { error: "A division with that (or a very similar) name already exists there" };
     }
     return { error: error?.message || "Could not create division" };
   }

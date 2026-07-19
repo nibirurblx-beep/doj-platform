@@ -4,25 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-interface AdminNavItem {
-  href: string;
-  label: string;
-  exact?: boolean;
-}
-
-const ADMIN_NAV: AdminNavItem[] = [
-  { href: "/portal/admin/users", label: "Users" },
-  { href: "/portal/admin/invitations", label: "Invitations" },
-  { href: "/portal/admin/organisation", label: "Organisation" },
-];
-
-export function AdminNav() {
+export function SectionTabs({
+  items,
+}: {
+  items: Array<{ href: string; label: string; exact?: boolean }>;
+}) {
   const pathname = usePathname();
 
   return (
     <nav className="mt-3 flex flex-wrap gap-1">
-      {ADMIN_NAV.map((item) => {
-        const active = item.exact
+      {items.map((item) => {
+        const isActive = item.exact
           ? pathname === item.href
           : pathname.startsWith(item.href);
         return (
@@ -30,10 +22,10 @@ export function AdminNav() {
             key={item.href}
             href={item.href}
             className={cn(
-              "rounded px-3 py-1.5 text-sm",
-              active
+              "rounded px-3 py-1.5 text-sm font-medium",
+              isActive
                 ? "bg-navy-900 text-white"
-                : "text-grey-600 hover:bg-grey-100 hover:text-navy-900",
+                : "text-grey-700 hover:bg-grey-100",
             )}
           >
             {item.label}

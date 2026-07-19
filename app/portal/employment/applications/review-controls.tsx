@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import {
   changeApplicationStatusAction,
   addApplicationNoteAction,
-} from "@/app/portal/admin/applications/actions";
+} from "@/app/portal/employment/applications/actions";
 
 type ActionResult = { error?: string; success?: boolean; message?: string } | null;
 

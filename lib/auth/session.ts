@@ -124,3 +124,17 @@ export function generateToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+/**
+ * Staff = at least one organisation membership. Applicants have none.
+ * Drives where login lands and who may enter the portal.
+ */
+export async function isStaffUser(userId: string): Promise<boolean> {
+  const { createSupabaseServiceClient } = await import("@/lib/db/server");
+  const service = createSupabaseServiceClient();
+  const { count } = await service
+    .from("memberships")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  return (count ?? 0) > 0;
+}

@@ -15,9 +15,13 @@ const DISCORD_NOTICES: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ discord?: string }>;
+  searchParams: Promise<{ discord?: string; next?: string }>;
 }) {
   const params = await searchParams;
+  const next =
+    typeof params.next === "string" && params.next.startsWith("/") && !params.next.startsWith("//")
+      ? params.next
+      : undefined;
   const notice = params.discord ? DISCORD_NOTICES[params.discord] : undefined;
   const discordAvailable = isDiscordConfigured();
 
@@ -32,7 +36,7 @@ export default async function LoginPage({
           {notice}
         </p>
       )}
-      <LoginForm />
+      <LoginForm next={next} />
       {discordAvailable && (
         <form action="/auth/discord/login" method="post">
           <button

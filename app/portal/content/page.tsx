@@ -36,9 +36,9 @@ export default async function ContentListPage({
   const { data: posts } = await query;
 
   const tabs = [
-    { href: "/portal/admin/content", label: "All", active: !filterType },
-    { href: "/portal/admin/content?type=news", label: "News", active: filterType === "news" },
-    { href: "/portal/admin/content?type=page", label: "Pages", active: filterType === "page" },
+    { href: "/portal/content", label: "All", active: !filterType },
+    { href: "/portal/content?type=news", label: "News", active: filterType === "news" },
+    { href: "/portal/content?type=page", label: "Pages", active: filterType === "page" },
   ];
 
   return (
@@ -61,13 +61,13 @@ export default async function ContentListPage({
         </div>
         <div className="flex gap-2">
           <Link
-            href="/portal/admin/content/new?type=news"
+            href="/portal/content/new?type=news"
             className="rounded bg-navy-900 px-3 py-1.5 text-sm text-white hover:bg-navy-800"
           >
             New news post
           </Link>
           <Link
-            href="/portal/admin/content/new?type=page"
+            href="/portal/content/new?type=page"
             className="rounded border border-grey-300 bg-white px-3 py-1.5 text-sm hover:border-navy-900"
           >
             New page
@@ -96,7 +96,7 @@ export default async function ContentListPage({
                 <tr key={post.id} className="border-b border-grey-100 hover:bg-grey-050">
                   <td className="px-5 py-3">
                     <Link
-                      href={`/portal/admin/content/${post.id}`}
+                      href={`/portal/content/${post.id}`}
                       className="font-medium text-navy-900 hover:underline"
                     >
                       {post.title}

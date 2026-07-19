@@ -1,4 +1,5 @@
-import { requireActiveUser } from "@/lib/auth/session";
+import { requireActiveUser, isStaffUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 import { getMyPermissions } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
 import Link from "next/link";
@@ -14,21 +15,38 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const session = await requireActiveUser();
+
+  // The portal is for staff (organisation members) only. Applicants are
+  // sent to their own dashboard.
+  if (!(await isStaffUser(session.user.id))) {
+    redirect("/applicant");
+  }
+
   const myPermissions = await getMyPermissions();
-  const adminKeys: string[] = [
-    PERMISSIONS.USERS_INVITE,
-    PERMISSIONS.CONTENT_CREATE,
-    PERMISSIONS.CONTENT_EDIT,
-    PERMISSIONS.CONTENT_PUBLISH,
-    PERMISSIONS.VACANCIES_MANAGE,
-    PERMISSIONS.APPLICATIONS_ALL_VIEW,
-    PERMISSIONS.EMPLOYEES_ALL_VIEW,
-  PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW,
-  PERMISSIONS.USERS_MANAGE,
-  ];
-  const showAdmin = myPermissions.some((p) =>
-    adminKeys.includes(p.permission_key),
-  );
+  const has = (key: string) =>
+    myPermissions.some((p) => p.permission_key === key);
+
+  const navItems = [
+    { href: "/portal", label: "Dashboard", exact: true },
+    has(PERMISSIONS.CONTENT_CREATE) ||
+    has(PERMISSIONS.CONTENT_EDIT) ||
+    has(PERMISSIONS.CONTENT_PUBLISH)
+      ? { href: "/portal/content", label: "Content" }
+      : null,
+    has(PERMISSIONS.APPLICATIONS_ALL_VIEW) ||
+    has(PERMISSIONS.APPLICATIONS_DEPARTMENT_VIEW) ||
+    has(PERMISSIONS.VACANCIES_MANAGE) ||
+    has(PERMISSIONS.EMPLOYEES_ALL_VIEW) ||
+    has(PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW)
+      ? { href: "/portal/employment", label: "Employment register" }
+      : null,
+    { href: "/portal/documents", label: "Documents" },
+    has(PERMISSIONS.USERS_INVITE) || has(PERMISSIONS.USERS_MANAGE)
+      ? { href: "/portal/admin", label: "Administration" }
+      : null,
+    { href: "/portal/guide", label: "Guide" },
+    { href: "/portal/settings", label: "Settings" },
+  ].filter((i): i is { href: string; label: string; exact?: boolean } => i !== null);
 
   return (
     <div className="flex min-h-screen bg-grey-050">
@@ -39,7 +57,7 @@ export default async function PortalLayout({
             <Seal size={36} />
             <p className="font-display text-lg">DOJ</p>
           </Link>
-          <PortalNav showAdmin={showAdmin} />
+          <PortalNav items={navItems} />
         </div>
       </aside>
 

@@ -9,7 +9,7 @@ export const metadata = { title: "Add employee" };
 
 export default async function AddEmployeePage() {
   if (!(await hasPermissionAnywhere(PERMISSIONS.EMPLOYEES_CREATE))) {
-    redirect("/portal/admin/employees");
+    redirect("/portal/employment/employees");
   }
 
   const scope = await getPermittedOrgIds(PERMISSIONS.EMPLOYEES_CREATE);
@@ -55,7 +55,7 @@ export default async function AddEmployeePage() {
     <div className="max-w-xl space-y-4">
       <div className="flex items-center gap-3">
         <Link
-          href="/portal/admin/employees"
+          href="/portal/employment/employees"
           className="rounded border border-grey-300 bg-white px-2.5 py-1 text-sm hover:border-navy-900"
         >
           ← Back

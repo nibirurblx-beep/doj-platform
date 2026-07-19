@@ -150,7 +150,7 @@ export default async function ApplicationsAdminPage({
                   <tr key={app.id} className="border-b border-grey-100 hover:bg-grey-050">
                     <td className="px-5 py-3">
                       <Link
-                        href={`/portal/admin/applications/${app.id}`}
+                        href={`/portal/employment/applications/${app.id}`}
                         className="font-mono text-navy-900 hover:underline"
                       >
                         {app.app_number}

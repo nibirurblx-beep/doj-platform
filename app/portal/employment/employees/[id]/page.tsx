@@ -51,7 +51,7 @@ export default async function EmployeeDetailPage({
     canViewAll ? PERMISSIONS.EMPLOYEES_ALL_VIEW : PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW,
   );
   if (!scope.all && !scope.orgIds.includes(emp.organisation_id)) {
-    redirect("/portal/admin/employees");
+    redirect("/portal/employment/employees");
   }
 
   const canEdit = await userHasPermission(
@@ -101,7 +101,7 @@ export default async function EmployeeDetailPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <Link
-          href="/portal/admin/employees"
+          href="/portal/employment/employees"
           className="rounded border border-grey-300 bg-white px-2.5 py-1 text-sm hover:border-navy-900"
         >
           ← Back

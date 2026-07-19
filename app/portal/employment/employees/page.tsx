@@ -120,7 +120,7 @@ export default async function EmployeesAdminPage({
                   <tr key={emp.id} className="border-b border-grey-100 hover:bg-grey-050">
                     <td className="px-5 py-3 font-mono">
                       <Link
-                        href={`/portal/admin/employees/${emp.id}`}
+                        href={`/portal/employment/employees/${emp.id}`}
                         className="text-navy-900 hover:underline"
                       >
                         {emp.employee_number}

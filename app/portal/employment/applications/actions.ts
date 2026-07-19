@@ -75,8 +75,8 @@ export async function changeApplicationStatusAction(formData: FormData) {
     actor: actor.userId,
   });
 
-  revalidatePath("/portal/admin/applications");
-  revalidatePath(`/portal/admin/applications/${parsed.data.id}`);
+  revalidatePath("/portal/employment/applications");
+  revalidatePath(`/portal/employment/applications/${parsed.data.id}`);
   return { success: true, message: "Status updated" };
 }
 
@@ -129,6 +129,6 @@ export async function addApplicationNoteAction(formData: FormData) {
     actor: actor.userId,
   });
 
-  revalidatePath(`/portal/admin/applications/${parsed.data.applicationId}`);
+  revalidatePath(`/portal/employment/applications/${parsed.data.applicationId}`);
   return { success: true, message: "Note added" };
 }

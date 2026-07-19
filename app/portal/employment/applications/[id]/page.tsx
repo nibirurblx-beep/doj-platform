@@ -71,7 +71,7 @@ export default async function ApplicationReviewPage({
   const orgAllowed =
     allScope.all || deptScope.all || (vacancyOrg ? allowedOrgIds.has(vacancyOrg) : false);
   if (!orgAllowed) {
-    redirect("/portal/admin/applications");
+    redirect("/portal/employment/applications");
   }
 
   const canCreateEmployee = await hasPermissionAnywhere(
@@ -139,7 +139,7 @@ export default async function ApplicationReviewPage({
     <div className="space-y-6">
       <div>
         <Link
-          href="/portal/admin/applications"
+          href="/portal/employment/applications"
           className="text-sm text-navy-900 underline"
         >
           ← All applications

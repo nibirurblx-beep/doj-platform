@@ -152,7 +152,7 @@ export async function addEmployeeAction(formData: FormData) {
     actor: user.id,
   });
 
-  revalidatePath("/portal/admin/employees");
+  revalidatePath("/portal/employment/employees");
   return { success: true, message: `Created ${employee.employee_number}` };
 }
 
@@ -205,7 +205,7 @@ export async function toggleChecklistAction(formData: FormData) {
     actor: user.id,
   });
 
-  revalidatePath(`/portal/admin/employees/${employeeId}`);
+  revalidatePath(`/portal/employment/employees/${employeeId}`);
   return { success: true };
 }
 
@@ -285,7 +285,7 @@ export async function uploadEmployeeFileAction(formData: FormData) {
     actor: user.id,
   });
 
-  revalidatePath(`/portal/admin/employees/${employeeId}`);
+  revalidatePath(`/portal/employment/employees/${employeeId}`);
   return { success: true, message: `Uploaded ${file.name}` };
 }
 
@@ -331,6 +331,6 @@ export async function deleteEmployeeFileAction(formData: FormData) {
     actor: user.id,
   });
 
-  revalidatePath(`/portal/admin/employees/${employeeId}`);
+  revalidatePath(`/portal/employment/employees/${employeeId}`);
   return { success: true, message: "Deleted" };
 }

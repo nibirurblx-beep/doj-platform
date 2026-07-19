@@ -6,7 +6,7 @@ import {
   createContentAction,
   updateContentAction,
   changeContentStatusAction,
-} from "@/app/portal/admin/content/actions";
+} from "@/app/portal/content/actions";
 
 export interface ContentPostInput {
   id?: string;

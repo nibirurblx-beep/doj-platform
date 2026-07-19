@@ -71,6 +71,16 @@ export async function loginAction(formData: FormData) {
       actor: user.id,
       after: { email: user.email },
     });
+
+    // Destination: explicit ?next wins; otherwise staff go to the portal,
+    // applicants to the public homepage.
+    const next = formData.get("next");
+    if (typeof next === "string" && next.startsWith("/") && !next.startsWith("//")) {
+      redirect(next);
+    }
+    const { isStaffUser } = await import("@/lib/auth/session");
+    if (await isStaffUser(user.id)) redirect("/portal");
+    redirect("/");
   }
 
   redirect("/portal");
