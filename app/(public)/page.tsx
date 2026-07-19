@@ -72,11 +72,11 @@ export default async function HomePage() {
               Department of Justice
             </p>
             <h1 className="max-w-3xl font-display text-4xl leading-tight md:text-5xl">
-              Upholding the rule of law across the community
+              Upholding the rule of law across the nation
             </h1>
             <p className="mt-6 max-w-measure text-lg text-navy-100">
               News, legal resources and career opportunities from the
-              Department of Justice roleplay community.
+              Department of Justice.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link

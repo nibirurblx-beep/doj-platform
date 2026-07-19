@@ -51,7 +51,7 @@ export async function SiteHeader() {
               Department of Justice
             </span>
             <span className="block text-[10px] uppercase tracking-[0.18em] text-navy-100 sm:text-xs">
-              Roleplay Community
+              OurStandingFounder's United States of America
             </span>
           </span>
         </Link>
