@@ -11,7 +11,7 @@ import {
 import { getDocAccess, EMPLOYEE_FILES_ROOT } from "@/lib/documents/access";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { UploadForm, NewFolderForm, DeleteButton } from "./toolbar";
+import { UploadForm, NewFolderForm, DeleteButton, DeleteFolderButton, FolderVisibilityControl } from "./toolbar";
 
 export const metadata = { title: "Documents" };
 
@@ -77,13 +77,11 @@ export default async function DocumentsPage({
   const folders = (entries ?? [])
     .filter((e) => !e.id)
     .filter((e) => {
-      if (folder !== "") return true; // subfolders inherit the top-level rule
-      const name = e.name.toLowerCase();
-      if (name === EMPLOYEE_FILES_ROOT) return false; // managed via employee profiles
-      if (access.allOrgSlugs.includes(name)) {
-        return access.visibleOrgSlugs.includes(name);
+      const path = folder ? `${folder}/${e.name}` : e.name;
+      if (folder === "" && e.name.toLowerCase() === EMPLOYEE_FILES_ROOT) {
+        return false; // managed via employee profiles
       }
-      return true;
+      return access.canAccess(`${path}/x`);
     });
   const files = (entries ?? []).filter(
     (e) => e.id && e.name !== FOLDER_PLACEHOLDER,
@@ -172,10 +170,27 @@ export default async function DocumentsPage({
                       >
                         📁 {entry.name}
                       </Link>
+                      {access.ruleByPath.has(path) && (
+                        <span className="ml-2 rounded bg-navy-900 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gold-200">
+                          Private to {access.ruleByPath.get(path)!.organisationName}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-grey-600">—</td>
-                    <td className="px-5 py-3 text-grey-600">—</td>
-                    {canDelete && <td className="px-5 py-3"></td>}
+                    <td className="px-5 py-3 text-grey-600">
+                      {canUpload && (
+                        <FolderVisibilityControl
+                          path={path}
+                          currentOrgId={access.ruleByPath.get(path)?.organisationId ?? null}
+                          organisations={access.assignableOrgs}
+                        />
+                      )}
+                    </td>
+                    {canDelete && (
+                      <td className="px-5 py-3 text-right">
+                        <DeleteFolderButton path={path} />
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -214,9 +229,9 @@ export default async function DocumentsPage({
       </div>
 
       <p className="text-xs text-grey-500">
-        Stored privately in Supabase Storage. 20 MB per file. A top-level
-        folder named after a department (doj, mpd, fbi) is visible only to
-        that department members.
+        Stored privately in Supabase Storage. 20 MB per file. Use the
+        dropdown on any folder to make it private to a department or open it
+        to all staff — privacy covers everything inside the folder.
         {canUpload ? "" : " Ask an administrator to add or remove files."}
       </p>
     </div>

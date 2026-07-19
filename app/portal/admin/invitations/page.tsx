@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/db/server";
-import { getMyPermissions } from "@/lib/permissions/server";
+import { getPermittedOrgIds } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
 import { InviteForm } from "./invite-form";
 import { RevokeButton } from "@/components/admin/revoke-button";
@@ -28,19 +28,17 @@ function invitationStatus(inv: {
 export default async function InvitationsPage() {
   const service = createSupabaseServiceClient();
 
-  // Organisations where THIS user can invite (drives the form's org dropdown)
-  const myPermissions = await getMyPermissions();
-  const invitableOrgIds = myPermissions
-    .filter((p) => p.permission_key === PERMISSIONS.USERS_INVITE)
-    .map((p) => p.organisation_id);
+  // Organisations where THIS user can invite (drives the form's org dropdown).
+  // "all" scope (Platform Administrator) means every organisation.
+  const scope = await getPermittedOrgIds(PERMISSIONS.USERS_INVITE);
 
   const [orgsResult, rolesResult, officesResult, invitationsResult] =
     await Promise.all([
-      service
-        .from("organisations")
-        .select("id, slug, name")
-        .in("id", invitableOrgIds)
-        .order("name"),
+      (() => {
+        let q = service.from("organisations").select("id, slug, name").order("name");
+        if (!scope.all) q = q.in("id", scope.orgIds);
+        return q;
+      })(),
       service
         .from("roles")
         .select("id, name, organisation_id")
@@ -49,23 +47,27 @@ export default async function InvitationsPage() {
         .from("offices")
         .select("id, name, organisation_id")
         .order("name"),
-      service
-        .from("invitations")
-        .select(
-          "id, email, organisation_id, invited_at, expires_at, accepted_at, revoked_at, organisations(name), roles(name)",
-        )
-        .in("organisation_id", invitableOrgIds)
-        .order("invited_at", { ascending: false })
-        .limit(50),
+      (() => {
+        let q = service
+          .from("invitations")
+          .select(
+            "id, email, organisation_id, invited_at, expires_at, accepted_at, revoked_at, organisations(name), roles(name)",
+          )
+          .order("invited_at", { ascending: false })
+          .limit(50);
+        if (!scope.all) q = q.in("organisation_id", scope.orgIds);
+        return q;
+      })(),
     ]);
 
   const organisations = orgsResult.data ?? [];
+  const permittedOrgIds = new Set(organisations.map((o) => o.id));
   // Roles usable in the form: org-specific ones plus global roles (organisation_id null)
   const roles = (rolesResult.data ?? []).filter(
-    (r) => r.organisation_id === null || invitableOrgIds.includes(r.organisation_id),
+    (r) => r.organisation_id === null || permittedOrgIds.has(r.organisation_id),
   );
   const offices = (officesResult.data ?? []).filter((o) =>
-    invitableOrgIds.includes(o.organisation_id),
+    permittedOrgIds.has(o.organisation_id),
   );
   const invitations = invitationsResult.data ?? [];
 

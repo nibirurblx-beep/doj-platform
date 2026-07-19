@@ -17,13 +17,16 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/portal/admin/vacancies", label: "Vacancies" },
   { href: "/portal/admin/applications", label: "Applications" },
   { href: "/portal/admin/employees", label: "Employees" },
+  { href: "/portal/admin/users", label: "Users" },
+  { href: "/portal/admin/organisation", label: "Organisation" },
+  { href: "/portal/admin/guide", label: "Guide" },
 ];
 
 export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="mt-3 flex gap-1">
+    <nav className="mt-3 flex flex-wrap gap-1">
       {ADMIN_NAV.map((item) => {
         const active = item.exact
           ? pathname === item.href

@@ -5,6 +5,8 @@ import {
   uploadDocumentAction,
   createFolderAction,
   deleteDocumentAction,
+  deleteFolderAction,
+  setFolderVisibilityAction,
 } from "@/app/portal/documents/actions";
 
 type ActionResult = { error?: string; success?: boolean; message?: string } | null;
@@ -98,6 +100,81 @@ export function DeleteButton({ path }: { path: string }) {
       >
         {isPending ? "…" : "Delete"}
       </button>
+    </form>
+  );
+}
+
+export function DeleteFolderButton({ path }: { path: string }) {
+  const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => deleteFolderAction(formData),
+    null,
+  );
+
+  return (
+    <form
+      action={formAction}
+      className="inline"
+      onSubmit={(e) => {
+        if (!confirm("Delete this folder? Only empty folders can be deleted.")) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="path" value={path} />
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded border border-grey-300 px-2 py-1 text-xs text-grey-700 hover:border-red-800 hover:text-red-800 disabled:opacity-50"
+        title={state?.error ?? "Delete empty folder"}
+      >
+        {isPending ? "…" : "Delete"}
+      </button>
+      {state?.error && (
+        <span className="ml-1.5 text-xs text-red-800">{state.error}</span>
+      )}
+    </form>
+  );
+}
+
+export function FolderVisibilityControl({
+  path,
+  currentOrgId,
+  organisations,
+}: {
+  path: string;
+  currentOrgId: string | null;
+  organisations: Array<{ id: string; name: string }>;
+}) {
+  const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => setFolderVisibilityAction(formData),
+    null,
+  );
+
+  return (
+    <form action={formAction} className="inline-flex items-center gap-1.5">
+      <input type="hidden" name="path" value={path} />
+      <select
+        name="orgId"
+        defaultValue={currentOrgId ?? ""}
+        className="rounded border border-grey-300 px-2 py-1 text-xs"
+        title="Who can see this folder"
+      >
+        <option value="">All staff</option>
+        {organisations.map((org) => (
+          <option key={org.id} value={org.id}>
+            Private to {org.name}
+          </option>
+        ))}
+      </select>
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded border border-grey-300 px-2 py-1 text-xs hover:border-navy-900 disabled:opacity-50"
+      >
+        {isPending ? "…" : "Set"}
+      </button>
+      {state?.success && <span className="text-xs text-green-700">✓</span>}
+      {state?.error && <span className="text-xs text-red-800">{state.error}</span>}
     </form>
   );
 }

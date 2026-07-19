@@ -4,6 +4,7 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/d
 import { hasPermissionAnywhere } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
 import { logAudit } from "@/lib/audit";
+import { isOwnerEmail, ownerEmail } from "@/lib/auth/owner";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -16,7 +17,35 @@ async function requireUsersManager() {
   if (!(await hasPermissionAnywhere(PERMISSIONS.USERS_MANAGE))) {
     return { error: "You do not have permission to manage users" as const };
   }
-  return { userId: user.id };
+  return { userId: user.id, email: user.email ?? null };
+}
+
+/** Global roles (Platform Administrator) may only be granted/revoked by the owner. */
+function requireOwnerForGlobalRoles(actorEmail: string | null):
+  | { ok: true }
+  | { ok: false; error: string } {
+  if (!ownerEmail()) {
+    return {
+      ok: false,
+      error:
+        "Global role changes are locked: set OWNER_EMAIL in the environment to the owner's login email first.",
+    };
+  }
+  if (!isOwnerEmail(actorEmail)) {
+    return {
+      ok: false,
+      error: "Only the platform owner can grant or revoke global roles.",
+    };
+  }
+  return { ok: true };
+}
+
+async function isOwnerAccount(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  userId: string,
+): Promise<boolean> {
+  const { data } = await service.auth.admin.getUserById(userId);
+  return isOwnerEmail(data.user?.email ?? null);
 }
 
 // ----------------------------------------------------------------------------
@@ -53,6 +82,10 @@ export async function grantRoleAction(formData: FormData) {
     .single();
   if (!role) return { error: "Role not found" };
   const isGlobal = role.organisation_id === null;
+  if (isGlobal) {
+    const ownerCheck = requireOwnerForGlobalRoles(actor.email);
+    if (!ownerCheck.ok) return { error: ownerCheck.error };
+  }
   if (!isGlobal && role.organisation_id !== input.organisationId) {
     return { error: "That role does not belong to the chosen organisation" };
   }
@@ -121,6 +154,17 @@ export async function revokeRoleAction(formData: FormData) {
     user_id: string;
   } | null;
 
+  // Global roles can only be revoked by the owner
+  const { data: roleRow } = await service
+    .from("roles")
+    .select("organisation_id")
+    .eq("id", mr.role_id)
+    .single();
+  if (roleRow && roleRow.organisation_id === null) {
+    const ownerCheck = requireOwnerForGlobalRoles(actor.email);
+    if (!ownerCheck.ok) return { error: ownerCheck.error };
+  }
+
   // Guard: don't let an admin strip their own last users.manage grant
   if (membership?.user_id === actor.userId) {
     return { error: "You cannot revoke your own roles. Ask another administrator." };
@@ -158,6 +202,9 @@ export async function suspendUserAction(formData: FormData) {
   if (userId === actor.userId) return { error: "You cannot suspend yourself" };
 
   const service = createSupabaseServiceClient();
+  if ((await isOwnerAccount(service, userId)) && !isOwnerEmail(actor.email)) {
+    return { error: "The platform owner cannot be suspended" };
+  }
   const { error } = await service.from("user_security_status").upsert({
     user_id: userId,
     suspended_at: new Date().toISOString(),
@@ -251,4 +298,164 @@ export async function createDivisionAction(formData: FormData) {
 
   revalidatePath("/portal/admin/users");
   return { success: true, message: `Created ${parsed.data.name.trim()}` };
+}
+
+// ----------------------------------------------------------------------------
+// Edit user info (display name, Roblox username, email)
+// ----------------------------------------------------------------------------
+const updateUserSchema = z.object({
+  userId: z.string().uuid(),
+  displayName: z.string().min(2, "Display name too short").max(80),
+  robloxUsername: z.string().max(50).optional().or(z.literal("")),
+  email: z.string().email("Invalid email").max(200),
+});
+
+export async function updateUserAction(formData: FormData) {
+  const actor = await requireUsersManager();
+  if ("error" in actor) return { error: actor.error };
+
+  const parsed = updateUserSchema.safeParse({
+    userId: formData.get("userId"),
+    displayName: formData.get("displayName"),
+    robloxUsername: formData.get("robloxUsername") ?? "",
+    email: formData.get("email"),
+  });
+  if (!parsed.success) {
+    const errors = parsed.error.flatten().fieldErrors;
+    return { error: Object.values(errors)[0]?.[0] || "Invalid input" };
+  }
+  const input = parsed.data;
+
+  const service = createSupabaseServiceClient();
+
+  // Email change goes through auth (kept confirmed so no verification email)
+  const { data: current } = await service.auth.admin.getUserById(input.userId);
+  if (!current.user) return { error: "User not found" };
+
+  if (current.user.email?.toLowerCase() !== input.email.toLowerCase()) {
+    const { error: emailErr } = await service.auth.admin.updateUserById(
+      input.userId,
+      { email: input.email, email_confirm: true },
+    );
+    if (emailErr) return { error: `Email change failed: ${emailErr.message}` };
+  }
+
+  const { error: profileErr } = await service
+    .from("profiles")
+    .update({
+      display_name: input.displayName.trim(),
+      roblox_username: input.robloxUsername?.trim() || null,
+    })
+    .eq("id", input.userId);
+  if (profileErr) return { error: profileErr.message };
+
+  await logAudit(service, {
+    action: "user.updated",
+    entityType: "profiles",
+    entityId: input.userId,
+    after: {
+      display_name: input.displayName.trim(),
+      roblox_username: input.robloxUsername?.trim() || null,
+      email: input.email,
+    },
+    actor: actor.userId,
+  });
+
+  revalidatePath("/portal/admin/users");
+  return { success: true, message: "User updated" };
+}
+
+// ----------------------------------------------------------------------------
+// Change division on a membership
+// ----------------------------------------------------------------------------
+export async function setMembershipDivisionAction(formData: FormData) {
+  const actor = await requireUsersManager();
+  if ("error" in actor) return { error: actor.error };
+
+  const membershipId = formData.get("membershipId");
+  const officeId = formData.get("officeId");
+  if (typeof membershipId !== "string" || typeof officeId !== "string") {
+    return { error: "Invalid input" };
+  }
+
+  const service = createSupabaseServiceClient();
+  const { data: membership } = await service
+    .from("memberships")
+    .select("id, organisation_id")
+    .eq("id", membershipId)
+    .single();
+  if (!membership) return { error: "Membership not found" };
+
+  if (officeId) {
+    const { data: office } = await service
+      .from("offices")
+      .select("id, organisation_id")
+      .eq("id", officeId)
+      .single();
+    if (!office || office.organisation_id !== membership.organisation_id) {
+      return { error: "That division does not belong to the membership's organisation" };
+    }
+  }
+
+  const { error } = await service
+    .from("memberships")
+    .update({ office_id: officeId || null })
+    .eq("id", membershipId);
+  if (error) return { error: error.message };
+
+  await logAudit(service, {
+    action: "user.division.changed",
+    entityType: "memberships",
+    entityId: membershipId,
+    orgId: membership.organisation_id,
+    reason: officeId || "none",
+    actor: actor.userId,
+  });
+
+  revalidatePath("/portal/admin/users");
+  return { success: true, message: "Division updated" };
+}
+
+// ----------------------------------------------------------------------------
+// Delete a user account (permanent)
+// ----------------------------------------------------------------------------
+export async function deleteUserAction(formData: FormData) {
+  const actor = await requireUsersManager();
+  if ("error" in actor) return { error: actor.error };
+
+  const userId = formData.get("userId");
+  if (typeof userId !== "string") return { error: "Invalid input" };
+  if (userId === actor.userId) return { error: "You cannot delete your own account" };
+
+  const service = createSupabaseServiceClient();
+  if (await isOwnerAccount(service, userId)) {
+    return { error: "The platform owner account cannot be deleted" };
+  }
+
+  const { data: target } = await service.auth.admin.getUserById(userId);
+  if (!target.user) return { error: "User not found" };
+  const targetEmail = target.user.email ?? userId;
+
+  // employees.user_id is ON DELETE RESTRICT: clear employee records first
+  const { error: empErr } = await service
+    .from("employees")
+    .delete()
+    .eq("user_id", userId);
+  if (empErr) return { error: `Could not remove employee records: ${empErr.message}` };
+
+  // Audit BEFORE deletion so the entry is written even though the entity goes
+  await logAudit(service, {
+    action: "account.deleted",
+    entityType: "auth.user",
+    entityId: userId,
+    reason: targetEmail,
+    actor: actor.userId,
+  });
+
+  // profiles, memberships, security status, applications all cascade
+  const { error: delErr } = await service.auth.admin.deleteUser(userId);
+  if (delErr) return { error: delErr.message };
+
+  revalidatePath("/portal/admin/users");
+  return { success: true, message: `Deleted ${targetEmail}` };
 }

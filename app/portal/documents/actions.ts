@@ -50,6 +50,14 @@ export async function uploadDocumentAction(formData: FormData) {
     };
   }
 
+  // The actor must be able to access the target folder (stops cross-
+  // department writes into private folders via crafted requests)
+  const { getDocAccess: getUploadAccess } = await import("@/lib/documents/access");
+  const uploadAccess = await getUploadAccess();
+  if (!uploadAccess.canAccess(folder ? `${folder}/x` : "x")) {
+    return { error: "You do not have access to that folder" };
+  }
+
   const path = folder ? `${folder}/${file.name}` : file.name;
   const service = createSupabaseServiceClient();
 
@@ -93,6 +101,12 @@ export async function createFolderAction(formData: FormData) {
     return { error: "Folder name can only use letters, numbers, spaces, dots and dashes" };
   }
 
+  const { getDocAccess: getCreateAccess } = await import("@/lib/documents/access");
+  const createAccess = await getCreateAccess();
+  if (!createAccess.canAccess(parent ? `${parent}/x` : "x")) {
+    return { error: "You do not have access to that folder" };
+  }
+
   const path = parent
     ? `${parent}/${name}/${FOLDER_PLACEHOLDER}`
     : `${name}/${FOLDER_PLACEHOLDER}`;
@@ -119,6 +133,12 @@ export async function deleteDocumentAction(formData: FormData) {
     return { error: "Invalid path" };
   }
 
+  const { getDocAccess: getDeleteAccess } = await import("@/lib/documents/access");
+  const deleteAccess = await getDeleteAccess();
+  if (!deleteAccess.canAccess(path)) {
+    return { error: "You do not have access to that file" };
+  }
+
   const service = createSupabaseServiceClient();
   const { error } = await service.storage
     .from(DOCUMENTS_BUCKET)
@@ -134,4 +154,118 @@ export async function deleteDocumentAction(formData: FormData) {
 
   revalidatePath("/portal/documents");
   return { success: true, message: "Deleted" };
+}
+
+export async function deleteFolderAction(formData: FormData) {
+  const actor = await requireDocumentActor(PERMISSIONS.DOCUMENTS_ARCHIVE);
+  if ("error" in actor) return { error: actor.error };
+
+  const path = formData.get("path");
+  if (typeof path !== "string" || !path || !isSafePath(path)) {
+    return { error: "Invalid path" };
+  }
+
+  const { getDocAccess: getFolderAccess } = await import("@/lib/documents/access");
+  const folderAccess = await getFolderAccess();
+  if (!folderAccess.canAccess(`${path}/x`)) {
+    return { error: "You do not have access to that folder" };
+  }
+
+  const service = createSupabaseServiceClient();
+
+  // Only empty folders can be deleted: anything besides the placeholder blocks it
+  const { data: entries, error: listErr } = await service.storage
+    .from(DOCUMENTS_BUCKET)
+    .list(path, { limit: 3 });
+  if (listErr) return { error: listErr.message };
+  const contents = (entries ?? []).filter((e) => e.name !== FOLDER_PLACEHOLDER);
+  if (contents.length > 0) {
+    return { error: "Folder is not empty. Delete its contents first." };
+  }
+
+  const { error } = await service.storage
+    .from(DOCUMENTS_BUCKET)
+    .remove([`${path}/${FOLDER_PLACEHOLDER}`]);
+  if (error) return { error: error.message };
+
+  await logAuditFolder(service, path, actor.userId);
+
+  revalidatePath("/portal/documents");
+  return { success: true, message: "Folder deleted" };
+}
+
+async function logAuditFolder(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  path: string,
+  actorId: string,
+) {
+  const { logAudit } = await import("@/lib/audit");
+  await logAudit(service, {
+    action: "document.folder.deleted",
+    entityType: "storage_object",
+    reason: path,
+    actor: actorId,
+  });
+}
+
+/**
+ * Enable/disable folder privacy. orgId = private to that organisation,
+ * empty = visible to all staff. Works on any folder at any level.
+ */
+export async function setFolderVisibilityAction(formData: FormData) {
+  const actor = await requireDocumentActor(PERMISSIONS.DOCUMENTS_CREATE);
+  if ("error" in actor) return { error: actor.error };
+
+  const path = formData.get("path");
+  const orgId = formData.get("orgId");
+  if (
+    typeof path !== "string" ||
+    !path ||
+    !isSafePath(path) ||
+    typeof orgId !== "string"
+  ) {
+    return { error: "Invalid input" };
+  }
+
+  const { getDocAccess, EMPLOYEE_FILES_ROOT } = await import("@/lib/documents/access");
+  if (path.split("/")[0]?.toLowerCase() === EMPLOYEE_FILES_ROOT) {
+    return { error: "Employee files have fixed protection" };
+  }
+
+  const access = await getDocAccess();
+  if (!access.canAccess(`${path}/x`)) {
+    return { error: "You do not have access to that folder" };
+  }
+  if (orgId && !access.assignableOrgs.some((o) => o.id === orgId)) {
+    return { error: "You cannot restrict folders to that organisation" };
+  }
+
+  const service = createSupabaseServiceClient();
+
+  if (orgId) {
+    const { error } = await service.from("document_folder_rules").upsert({
+      path,
+      organisation_id: orgId,
+      updated_by: actor.userId,
+    });
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await service
+      .from("document_folder_rules")
+      .delete()
+      .eq("path", path);
+    if (error) return { error: error.message };
+  }
+
+  const { logAudit } = await import("@/lib/audit");
+  await logAudit(service, {
+    action: orgId ? "document.folder.restricted" : "document.folder.opened",
+    entityType: "storage_object",
+    orgId: orgId || null,
+    reason: path,
+    actor: actor.userId,
+  });
+
+  revalidatePath("/portal/documents");
+  return { success: true, message: orgId ? "Folder is now private" : "Folder visible to all staff" };
 }

@@ -1,98 +1,125 @@
 import "server-only";
 import {
-  getMyOrgSlugs,
   getPermittedOrgIds,
   hasPermissionAnywhere,
 } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
-import { createSupabaseServiceClient } from "@/lib/db/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/db/server";
 
 /**
- * Document path access rules:
+ * Document access rules:
  *
  * 1. "employees/..." — HR files (NDAs, contracts). Hidden from the general
- *    documents browser entirely; accessible only via employee profiles by
- *    holders of employee-view permissions, department-scoped by the org
- *    slug in the path: employees/<org_slug>/<employee_number>/file.pdf
+ *    documents browser; reachable only via employee profiles by holders of
+ *    employee-view permissions for that organisation.
  *
- * 2. A top-level folder whose name matches an organisation slug (e.g.
- *    "doj", "mpd", "fbi") is PRIVATE TO THAT DEPARTMENT: visible only to
- *    its members, or to anyone whose documents permission has "all" scope
- *    (Platform Administrator).
+ * 2. Folder privacy is a SETTING stored in document_folder_rules: a rule on
+ *    a folder makes it (and everything inside) private to one organisation.
+ *    Folder names are free. Rules on nested folders stack: every rule on
+ *    the path must pass (most restrictive wins).
  *
- * 3. Everything else is staff-wide (requires documents.internal.view).
+ * 3. No rule = visible to all staff with documents.internal.view.
  */
 
-let orgSlugCache: { slugs: string[]; at: number } | null = null;
-
-export async function getAllOrgSlugs(): Promise<string[]> {
-  if (orgSlugCache && Date.now() - orgSlugCache.at < 60_000) {
-    return orgSlugCache.slugs;
-  }
-  const service = createSupabaseServiceClient();
-  const { data } = await service.from("organisations").select("slug");
-  const slugs = (data ?? []).map((o) => o.slug.toLowerCase());
-  orgSlugCache = { slugs, at: Date.now() };
-  return slugs;
-}
-
 export const EMPLOYEE_FILES_ROOT = "employees";
+
+export interface FolderRule {
+  path: string;
+  organisationId: string;
+  organisationName: string;
+}
 
 export interface DocAccess {
   /** Can the user see/download this exact path? */
   canAccess: (path: string) => boolean;
-  /** Org slugs whose department folders the user may see. */
-  visibleOrgSlugs: string[];
-  /** All org slugs (to know which top-level folders are departmental). */
-  allOrgSlugs: string[];
+  /** Rule lookup for badges/controls, keyed by folder path. */
+  ruleByPath: Map<string, FolderRule>;
+  /** Organisations the user may make folders private to. */
+  assignableOrgs: Array<{ id: string; name: string }>;
   isAllScope: boolean;
 }
 
+/** True when `prefix` is the same folder as, or an ancestor of, `path`. */
+function isPathWithin(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`);
+}
+
 export async function getDocAccess(): Promise<DocAccess> {
-  const [allOrgSlugs, myOrgSlugs, docScope, canDocs, empAll, empDeptScope] =
-    await Promise.all([
-      getAllOrgSlugs(),
-      getMyOrgSlugs(),
-      getPermittedOrgIds(PERMISSIONS.DOCUMENTS_INTERNAL_VIEW),
-      hasPermissionAnywhere(PERMISSIONS.DOCUMENTS_INTERNAL_VIEW),
-      hasPermissionAnywhere(PERMISSIONS.EMPLOYEES_ALL_VIEW),
-      getPermittedOrgIds(PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW),
-    ]);
+  const service = createSupabaseServiceClient();
+  const supabase = await createSupabaseServerClient();
+
+  const [
+    { data: { user } },
+    docScope,
+    canDocs,
+    empAll,
+    empDeptScope,
+    { data: ruleRows },
+    { data: orgRows },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    getPermittedOrgIds(PERMISSIONS.DOCUMENTS_INTERNAL_VIEW),
+    hasPermissionAnywhere(PERMISSIONS.DOCUMENTS_INTERNAL_VIEW),
+    hasPermissionAnywhere(PERMISSIONS.EMPLOYEES_ALL_VIEW),
+    getPermittedOrgIds(PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW),
+    service.from("document_folder_rules").select("path, organisation_id"),
+    service.from("organisations").select("id, name, slug"),
+  ]);
+
+  const orgNameById = new Map((orgRows ?? []).map((o) => [o.id, o.name] as const));
+
+  // The user's memberships (which orgs' private folders they can enter)
+  let myOrgIds = new Set<string>();
+  if (user) {
+    const { data: memberships } = await supabase
+      .from("memberships")
+      .select("organisation_id")
+      .eq("user_id", user.id);
+    myOrgIds = new Set((memberships ?? []).map((m) => m.organisation_id));
+  }
 
   const isAllScope = docScope.all;
-  const mySlugSet = new Set(myOrgSlugs.map((s) => s.toLowerCase()));
-  const visibleOrgSlugs = isAllScope
-    ? allOrgSlugs
-    : allOrgSlugs.filter((slug) => mySlugSet.has(slug));
 
-  // Employee files: org slugs where the user holds employee view rights
-  const empService = createSupabaseServiceClient();
-  let empSlugs: string[] = [];
-  if (empAll || empDeptScope.all) {
-    empSlugs = allOrgSlugs;
-  } else if (empDeptScope.orgIds.length > 0) {
-    const { data } = await empService
-      .from("organisations")
-      .select("slug")
-      .in("id", empDeptScope.orgIds);
-    empSlugs = (data ?? []).map((o) => o.slug.toLowerCase());
+  const ruleByPath = new Map<string, FolderRule>();
+  for (const row of ruleRows ?? []) {
+    ruleByPath.set(row.path, {
+      path: row.path,
+      organisationId: row.organisation_id,
+      organisationName: orgNameById.get(row.organisation_id) ?? "Unknown",
+    });
   }
-  const empSlugSet = new Set(empSlugs);
+
+  // Employee-file access: org ids where the user holds employee view rights
+  const empOrgIds = empAll || empDeptScope.all
+    ? new Set((orgRows ?? []).map((o) => o.id))
+    : new Set(empDeptScope.orgIds);
+  const orgSlugToId = new Map((orgRows ?? []).map((o) => [o.slug.toLowerCase(), o.id] as const));
 
   const canAccess = (path: string): boolean => {
     const top = path.split("/")[0]?.toLowerCase() ?? "";
 
     if (top === EMPLOYEE_FILES_ROOT) {
       // employees/<org_slug>/<employee_number>/...
-      const orgSlug = path.split("/")[1]?.toLowerCase() ?? "";
-      return empSlugSet.has(orgSlug);
+      const slug = path.split("/")[1]?.toLowerCase() ?? "";
+      const orgId = orgSlugToId.get(slug);
+      return Boolean(orgId && empOrgIds.has(orgId));
     }
     if (!canDocs) return false;
-    if (allOrgSlugs.includes(top)) {
-      return isAllScope || mySlugSet.has(top);
+    if (isAllScope) return true;
+
+    // Every rule on the ancestor chain must pass
+    for (const rule of ruleByPath.values()) {
+      if (isPathWithin(path, rule.path) && !myOrgIds.has(rule.organisationId)) {
+        return false;
+      }
     }
     return true;
   };
 
-  return { canAccess, visibleOrgSlugs, allOrgSlugs, isAllScope };
+  const assignableOrgs = (orgRows ?? [])
+    .filter((o) => isAllScope || myOrgIds.has(o.id))
+    .map((o) => ({ id: o.id, name: o.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { canAccess, ruleByPath, assignableOrgs, isAllScope };
 }
