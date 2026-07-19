@@ -102,7 +102,7 @@ export default async function PortalPage() {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded bg-navy-900 px-4 py-2 text-sm text-white hover:bg-navy-800"
+              className="rounded bg-navy-900 px-4 py-2 text-sm text-white shadow-sm hover:-translate-y-0.5 hover:bg-navy-800 hover:shadow"
             >
               {link.label}
             </Link>

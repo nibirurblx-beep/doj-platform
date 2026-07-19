@@ -62,10 +62,10 @@ export function Checklist({
                   type="submit"
                   disabled={!canEdit || isPending}
                   aria-label={`${done ? "Untick" : "Tick"} ${item.label}`}
-                  className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border text-xs ${
+                  className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border-2 text-xs font-bold shadow-sm ${
                     done
                       ? "border-gold-600 bg-gold-600 text-navy-950"
-                      : "border-grey-300 bg-white text-transparent hover:border-navy-900"
+                      : "border-grey-400 bg-grey-050 text-transparent hover:scale-110 hover:border-navy-900 hover:bg-white"
                   } ${canEdit ? "" : "cursor-not-allowed opacity-60"}`}
                 >
                   ✓

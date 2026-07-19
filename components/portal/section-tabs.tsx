@@ -24,8 +24,8 @@ export function SectionTabs({
             className={cn(
               "rounded px-3 py-1.5 text-sm font-medium",
               isActive
-                ? "bg-navy-900 text-white"
-                : "text-grey-700 hover:bg-grey-100",
+                ? "bg-navy-900 text-white shadow-sm"
+                : "text-grey-700 hover:-translate-y-0.5 hover:bg-grey-100 hover:text-navy-900",
             )}
           >
             {item.label}

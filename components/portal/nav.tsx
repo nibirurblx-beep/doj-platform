@@ -26,12 +26,18 @@ export function PortalNav({ items }: { items: PortalNavItem[] }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "block rounded px-3 py-2 text-sm font-medium",
+                "relative block rounded px-3 py-2 text-sm font-medium",
                 isActive
-                  ? "bg-navy-50 text-navy-900"
-                  : "text-grey-700 hover:bg-grey-50",
+                  ? "bg-navy-50 pl-4 text-navy-900 shadow-sm"
+                  : "text-grey-700 hover:translate-x-0.5 hover:bg-grey-50 hover:text-navy-900",
               )}
             >
+              {isActive && (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-gold-600"
+                />
+              )}
               {item.label}
             </Link>
           );
@@ -40,9 +46,12 @@ export function PortalNav({ items }: { items: PortalNavItem[] }) {
       <div className="mt-6 border-t border-grey-200 pt-4">
         <Link
           href="/"
-          className="block rounded px-3 py-2 text-sm text-grey-600 hover:bg-grey-50 hover:text-navy-900"
+          className="group block rounded px-3 py-2 text-sm text-grey-600 hover:bg-grey-50 hover:text-navy-900"
         >
-          ← Return to main site
+          <span className="inline-block transition-transform group-hover:-translate-x-0.5">
+            ←
+          </span>{" "}
+          Return to main site
         </Link>
       </div>
     </nav>
