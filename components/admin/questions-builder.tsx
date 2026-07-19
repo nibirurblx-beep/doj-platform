@@ -1,6 +1,6 @@
 "use client";
 
-import type { VacancyQuestion } from "@/app/portal/admin/vacancies/actions";
+import type { VacancyQuestion } from "@/app/portal/employment/vacancies/actions";
 
 const TYPE_LABELS: Record<VacancyQuestion["type"], string> = {
   short_text: "Short answer",
