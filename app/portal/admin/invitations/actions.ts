@@ -113,28 +113,40 @@ export async function createInvitationAction(formData: FormData) {
     return { error: insertError?.message || "Failed to create invitation" };
   }
 
-  // Send the email. If it fails, revoke the row so no orphan invitation exists.
+  // The activation link. Also shown to the inviter so it can be shared
+  // directly (e.g. via Discord DM) when email delivery is unavailable.
+  const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+  const activationUrl = `${site}/auth/activate?token=${plainToken}`;
+
+  // Try to email it. Delivery failure no longer revokes the invitation:
+  // the link below still works and can be sent by hand.
+  let emailSent = true;
+  let emailNote = "";
   try {
     await sendInvitationEmail(input.email, plainToken);
   } catch (emailError) {
-    await service
-      .from("invitations")
-      .update({ revoked_at: new Date().toISOString() })
-      .eq("id", invitation.id);
-    const message =
+    emailSent = false;
+    emailNote =
       emailError instanceof Error ? emailError.message : "Email delivery failed";
-    return { error: message };
   }
 
   await logAudit(service, {
-    action: "invitation.sent",
+    action: emailSent ? "invitation.sent" : "invitation.created_email_failed",
     entityType: "invitation",
     entityId: invitation.id,
+    reason: emailSent ? null : emailNote,
     actor: user.id,
   });
 
   revalidatePath("/portal/admin/invitations");
-  return { success: true, message: `Invitation sent to ${input.email}` };
+  return {
+    success: true,
+    message: emailSent
+      ? `Invitation sent to ${input.email}`
+      : `Invitation created, but the email could not be sent (${emailNote}). Share the link below with them directly — it is their one-time activation link.`,
+    activationUrl,
+    emailSent,
+  };
 }
 
 export async function revokeInvitationAction(formData: FormData) {

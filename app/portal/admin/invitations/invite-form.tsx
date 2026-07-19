@@ -159,9 +159,30 @@ export function InviteForm({
         </p>
       )}
       {state && "success" in state && state.success && (
-        <p className="rounded bg-green-50 px-3 py-2 text-sm text-green-800">
-          {state.message}
-        </p>
+        <div
+          className={`rounded px-3 py-2 text-sm ${
+            state.emailSent === false
+              ? "bg-amber-50 text-amber-900"
+              : "bg-green-50 text-green-800"
+          }`}
+        >
+          <p>{state.message}</p>
+          {state.activationUrl && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <code className="max-w-full overflow-x-auto rounded bg-white px-2 py-1 text-xs">
+                {state.activationUrl}
+              </code>
+              <CopyLinkButton url={state.activationUrl} />
+            </div>
+          )}
+          {state.emailSent === false && (
+            <p className="mt-1.5 text-xs">
+              Send it to the right person only: the link creates their staff
+              account with the role you chose, works once, and expires in 7
+              days.
+            </p>
+          )}
+        </div>
       )}
 
       <button
@@ -172,5 +193,26 @@ export function InviteForm({
         {isPending ? "Sending…" : "Send invitation"}
       </button>
     </form>
+  );
+}
+
+function CopyLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          // Clipboard unavailable: the link is selectable next to the button
+        }
+      }}
+      className="rounded border border-grey-300 bg-white px-2.5 py-1 text-xs hover:border-navy-900"
+    >
+      {copied ? "Copied ✓" : "Copy link"}
+    </button>
   );
 }
