@@ -18,6 +18,7 @@ export default async function EmployeesAdminPage({
   searchParams: Promise<{ org?: string }>;
 }) {
   const canViewAll = await hasPermissionAnywhere(PERMISSIONS.EMPLOYEES_ALL_VIEW);
+  const canCreate = await hasPermissionAnywhere(PERMISSIONS.EMPLOYEES_CREATE);
   const canViewDept = await hasPermissionAnywhere(
     PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW,
   );
@@ -70,7 +71,17 @@ export default async function EmployeesAdminPage({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="font-display text-lg">Employees</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="font-display text-lg">Employees</h3>
+          {canCreate && (
+            <Link
+              href="/portal/employment/employees/new"
+              className="rounded bg-navy-900 px-3 py-1.5 text-sm text-white shadow-sm hover:-translate-y-0.5 hover:bg-navy-800"
+            >
+              Add employee
+            </Link>
+          )}
+        </div>
         <form method="get" className="flex gap-2">
           <select
             name="org"
