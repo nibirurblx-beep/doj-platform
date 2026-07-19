@@ -10,7 +10,7 @@ import { EMPLOYEE_FILES_ROOT } from "@/lib/documents/access";
 import type { ChecklistState } from "@/lib/employees/checklist";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { Checklist, EmployeeFileUpload, DeleteEmployeeFileButton } from "../widgets";
+import { Checklist, EmployeeFileUpload, DeleteEmployeeFileButton, EmployeeStatusControls } from "../widgets";
 
 export const metadata = { title: "Employee" };
 
@@ -40,7 +40,7 @@ export default async function EmployeeDetailPage({
   const { data: emp } = await service
     .from("employees")
     .select(
-      "id, employee_number, user_id, rank, status, started_at, checklist, organisation_id, organisations(name, slug), offices(name)",
+      "id, employee_number, user_id, rank, status, started_at, ended_at, end_reason, checklist, organisation_id, organisations(name, slug), offices(name)",
     )
     .eq("id", id)
     .single();
@@ -111,15 +111,31 @@ export default async function EmployeeDetailPage({
           <span className="text-grey-500">· {emp.employee_number}</span>
         </h2>
         <span
-          className={`rounded px-2 py-0.5 text-xs font-medium ${
+          className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
             emp.status === "active"
               ? "bg-green-50 text-green-700"
-              : "bg-grey-100 text-grey-600"
+              : emp.status === "dismissed"
+                ? "bg-red-50 text-red-800"
+                : "bg-grey-100 text-grey-600"
           }`}
         >
           {emp.status}
         </span>
+        {canEdit && (
+          <span className="ml-auto">
+            <EmployeeStatusControls employeeId={emp.id} status={emp.status} />
+          </span>
+        )}
       </div>
+
+      {emp.status !== "active" && (
+        <div className="rounded border border-grey-200 bg-grey-050 px-4 py-3 text-sm text-grey-700">
+          {emp.status === "dismissed" ? "Dismissed" : "Resigned"}
+          {emp.ended_at ? ` on ${formatDate(emp.ended_at)}` : ""}
+          {emp.end_reason ? ` — ${emp.end_reason}` : ""}. Their roles in this
+          organisation were removed; the account itself still exists.
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Details */}

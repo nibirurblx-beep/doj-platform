@@ -6,6 +6,7 @@ import {
   toggleChecklistAction,
   uploadEmployeeFileAction,
   deleteEmployeeFileAction,
+  setEmployeeStatusAction,
 } from "./actions";
 import { CHECKLIST_ITEMS, type ChecklistState } from "@/lib/employees/checklist";
 
@@ -332,5 +333,107 @@ function OrgScopedSelects({
         </select>
       </div>
     </>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Departure controls: dismiss / mark resigned / reinstate
+// ----------------------------------------------------------------------------
+export function EmployeeStatusControls({
+  employeeId,
+  status,
+}: {
+  employeeId: string;
+  status: string;
+}) {
+  const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => setEmployeeStatusAction(formData),
+    null,
+  );
+  const [pendingStatus, setPendingStatus] = useState<"dismissed" | "resigned" | null>(
+    null,
+  );
+
+  if (status !== "active") {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <form action={formAction}>
+          <input type="hidden" name="employeeId" value={employeeId} />
+          <input type="hidden" name="status" value="active" />
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded border border-grey-300 px-3 py-1.5 text-sm hover:border-green-700 hover:text-green-700 disabled:opacity-50"
+          >
+            {isPending ? "…" : "Reinstate"}
+          </button>
+        </form>
+        {state?.error && <span className="text-xs text-red-800">{state.error}</span>}
+        {state?.success && (
+          <span className="text-xs text-green-700">{state.message}</span>
+        )}
+      </div>
+    );
+  }
+
+  if (!pendingStatus) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setPendingStatus("resigned")}
+          className="rounded border border-grey-300 px-3 py-1.5 text-sm hover:border-navy-900"
+        >
+          Mark as resigned
+        </button>
+        <button
+          type="button"
+          onClick={() => setPendingStatus("dismissed")}
+          className="rounded border border-grey-300 px-3 py-1.5 text-sm text-grey-700 hover:border-red-800 hover:text-red-800"
+        >
+          Dismiss
+        </button>
+        {state?.success && (
+          <span className="text-xs text-green-700">{state.message}</span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="employeeId" value={employeeId} />
+      <input type="hidden" name="status" value={pendingStatus} />
+      <input
+        type="text"
+        name="reason"
+        placeholder={pendingStatus === "dismissed" ? "Reason for dismissal" : "Reason (optional)"}
+        className="w-56 rounded border border-grey-300 px-2.5 py-1.5 text-sm"
+        autoFocus
+      />
+      <button
+        type="submit"
+        disabled={isPending}
+        className={`rounded px-3 py-1.5 text-sm text-white disabled:opacity-50 ${
+          pendingStatus === "dismissed"
+            ? "bg-red-800 hover:bg-red-700"
+            : "bg-navy-900 hover:bg-navy-800"
+        }`}
+      >
+        {isPending
+          ? "Saving…"
+          : pendingStatus === "dismissed"
+            ? "Confirm dismissal"
+            : "Confirm resignation"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setPendingStatus(null)}
+        className="px-1.5 text-sm text-grey-500 hover:text-grey-800"
+      >
+        Cancel
+      </button>
+      {state?.error && <span className="text-xs text-red-800">{state.error}</span>}
+    </form>
   );
 }

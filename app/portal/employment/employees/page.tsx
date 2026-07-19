@@ -137,7 +137,9 @@ export default async function EmployeesAdminPage({
                         className={`inline-block rounded px-2 py-0.5 text-xs font-medium capitalize ${
                           emp.status === "active"
                             ? "bg-green-50 text-green-700"
-                            : "bg-grey-100 text-grey-600"
+                            : emp.status === "dismissed"
+                              ? "bg-red-50 text-red-800"
+                              : "bg-grey-100 text-grey-600"
                         }`}
                       >
                         {emp.status}

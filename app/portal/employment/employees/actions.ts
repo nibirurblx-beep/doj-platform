@@ -334,3 +334,84 @@ export async function deleteEmployeeFileAction(formData: FormData) {
   revalidatePath(`/portal/employment/employees/${employeeId}`);
   return { success: true, message: "Deleted" };
 }
+
+// ----------------------------------------------------------------------------
+// Departure: dismiss (fired) or resign (left voluntarily), and reinstate
+// ----------------------------------------------------------------------------
+const EMPLOYEE_END_STATUSES = ["dismissed", "resigned"] as const;
+
+export async function setEmployeeStatusAction(formData: FormData) {
+  const user = await getActor();
+  if (!user) return { error: "Not signed in" };
+
+  const employeeId = formData.get("employeeId");
+  const status = formData.get("status");
+  const reason = formData.get("reason");
+  if (typeof employeeId !== "string" || typeof status !== "string") {
+    return { error: "Invalid input" };
+  }
+  const ending = (EMPLOYEE_END_STATUSES as readonly string[]).includes(status);
+  if (!ending && status !== "active") {
+    return { error: "Invalid status" };
+  }
+
+  const service = createSupabaseServiceClient();
+  const { data: employee } = await service
+    .from("employees")
+    .select("id, user_id, organisation_id, status, employee_number")
+    .eq("id", employeeId)
+    .single();
+  if (!employee) return { error: "Employee not found" };
+
+  if (!(await userHasPermission(PERMISSIONS.EMPLOYEES_UPDATE, employee.organisation_id))) {
+    return { error: "You cannot update employees in that organisation" };
+  }
+  if (employee.status === status) {
+    return { error: `Already ${status}` };
+  }
+
+  const endReason =
+    typeof reason === "string" && reason.trim() ? reason.trim().slice(0, 500) : null;
+
+  const { error: updateErr } = await service
+    .from("employees")
+    .update(
+      ending
+        ? { status, ended_at: new Date().toISOString(), end_reason: endReason }
+        : { status: "active", ended_at: null, end_reason: null },
+    )
+    .eq("id", employeeId);
+  if (updateErr) return { error: updateErr.message };
+
+  // Ending employment also ends the organisation membership, which strips
+  // the person's roles there. If it was their only organisation they lose
+  // portal access entirely (accounts survive; they can still apply again).
+  if (ending) {
+    const { error: memberErr } = await service
+      .from("memberships")
+      .delete()
+      .eq("user_id", employee.user_id)
+      .eq("organisation_id", employee.organisation_id);
+    if (memberErr) {
+      console.error("Membership removal on departure failed:", memberErr.message);
+    }
+  }
+
+  await logAudit(service, {
+    action: ending ? `employee.${status}` : "employee.reinstated",
+    entityType: "employees",
+    entityId: employeeId,
+    orgId: employee.organisation_id,
+    reason: endReason,
+    actor: user.id,
+  });
+
+  revalidatePath(`/portal/employment/employees/${employeeId}`);
+  revalidatePath("/portal/employment/employees");
+  return {
+    success: true,
+    message: ending
+      ? `${employee.employee_number} marked as ${status}; their roles in this organisation were removed`
+      : `${employee.employee_number} reinstated. Re-grant their roles from Administration > Users.`,
+  };
+}
