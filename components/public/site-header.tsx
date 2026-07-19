@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { createSupabaseServiceClient } from "@/lib/db/server";
 import { Seal } from "@/components/brand/seal";
+import { HeaderNav, type NavItem } from "./header-nav";
+
+const DEPARTMENT_LINKS: NavItem[] = [
+  { href: "/departments/doj", label: "Department of Justice" },
+  { href: "/departments/mpd", label: "Metropolitan Police Department" },
+  { href: "/departments/fbi", label: "Federal Bureau of Investigation" },
+];
 
 /**
- * Primary navigation = fixed sections + published CMS pages.
- * Publish a page in the admin (e.g. slug "about" or "contact") and it
- * appears here automatically at /p/<slug>. First four pages by title.
+ * Primary navigation = Departments dropdown + fixed sections + published
+ * CMS pages (publish a page with slug "about" or "contact" and it appears
+ * automatically at /p/<slug>). First four pages by title.
  */
-async function getNavItems() {
-  const fixed = [
-    { href: "/news", label: "News" },
-    { href: "/careers", label: "Careers" },
-  ];
-
+async function getCmsItems(): Promise<NavItem[]> {
   try {
     const service = createSupabaseServiceClient();
     const { data: pages } = await service
@@ -22,56 +24,38 @@ async function getNavItems() {
       .eq("status", "published")
       .order("title")
       .limit(4);
-
-    const cmsItems = (pages ?? []).map((page) => ({
+    return (pages ?? []).map((page) => ({
       href: `/p/${page.slug}`,
       label: page.title,
     }));
-    return [...fixed, ...cmsItems];
   } catch {
-    return fixed;
+    return [];
   }
 }
 
 export async function SiteHeader() {
-  const nav = await getNavItems();
+  const cmsItems = await getCmsItems();
+  const items: NavItem[] = [
+    { href: "/news", label: "News" },
+    { href: "/careers", label: "Careers" },
+    ...cmsItems,
+  ];
 
   return (
-    <header className="border-b-4 border-gold-500 bg-navy-900 text-white">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-5">
-        <Link href="/" className="flex items-center gap-4">
-          <Seal size={48} />
-          <span>
-            <span className="block font-display text-xl leading-tight">
+    <header className="relative border-b-4 border-gold-500 bg-navy-900 text-white">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5">
+        <Link href="/" className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <Seal size={44} />
+          <span className="min-w-0">
+            <span className="block truncate font-display text-lg leading-tight sm:text-xl">
               Department of Justice
             </span>
-            <span className="block text-xs uppercase tracking-[0.18em] text-navy-100">
+            <span className="block text-[10px] uppercase tracking-[0.18em] text-navy-100 sm:text-xs">
               Roleplay Community
             </span>
           </span>
         </Link>
-        <nav aria-label="Primary">
-          <ul className="flex flex-wrap items-center gap-6 text-sm font-medium">
-            {nav.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="hover:text-gold-200 hover:underline hover:underline-offset-4"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-            <li>
-              <Link
-                href="/auth/login"
-                className="rounded border border-navy-400 px-3 py-1.5 hover:border-white"
-              >
-                Sign in
-              </Link>
-            </li>
-          </ul>
-        </nav>
+        <HeaderNav items={items} departments={DEPARTMENT_LINKS} />
       </div>
     </header>
   );

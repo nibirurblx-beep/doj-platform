@@ -1,6 +1,5 @@
 import { getUserSession } from "@/lib/auth/session";
-import { hasPermissionAnywhere } from "@/lib/permissions/server";
-import { PERMISSIONS } from "@/lib/permissions/keys";
+import { getDocAccess } from "@/lib/documents/access";
 import { createSupabaseServiceClient } from "@/lib/db/server";
 import { DOCUMENTS_BUCKET, isSafePath } from "@/lib/documents/storage";
 import { NextResponse, type NextRequest } from "next/server";
@@ -11,13 +10,16 @@ export async function GET(request: NextRequest) {
   if (!session || session.isSuspended) {
     return NextResponse.json({ error: "Not authorised" }, { status: 401 });
   }
-  if (!(await hasPermissionAnywhere(PERMISSIONS.DOCUMENTS_INTERNAL_VIEW))) {
-    return NextResponse.json({ error: "Not authorised" }, { status: 403 });
-  }
-
   const path = request.nextUrl.searchParams.get("path") ?? "";
   if (!path || !isSafePath(path)) {
     return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+  }
+
+  // Central access rules: staff-wide areas, department-private folders,
+  // and protected employee files all resolve here.
+  const access = await getDocAccess();
+  if (!access.canAccess(path)) {
+    return NextResponse.json({ error: "Not authorised" }, { status: 403 });
   }
 
   const service = createSupabaseServiceClient();

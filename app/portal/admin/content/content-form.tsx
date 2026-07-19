@@ -16,6 +16,7 @@ export interface ContentPostInput {
   excerpt: string;
   bodyHtml: string;
   status: string;
+  coverImageUrl?: string | null;
 }
 
 export function ContentForm({
@@ -93,6 +94,32 @@ export function ContentForm({
               className="mt-1 w-full rounded border border-grey-300 px-3 py-2 text-sm"
             />
           </div>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-sm font-medium">
+            Cover image <span className="font-normal text-grey-500">(shown on cards and listings, max 5 MB)</span>
+          </span>
+          {post.coverImageUrl && (
+            <div className="mb-2 flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.coverImageUrl}
+                alt="Current cover"
+                className="h-16 w-28 rounded border border-grey-200 object-cover"
+              />
+              <label className="flex items-center gap-1.5 text-sm text-grey-700">
+                <input type="checkbox" name="removeCover" />
+                Remove current cover
+              </label>
+            </div>
+          )}
+          <input
+            type="file"
+            name="coverImage"
+            accept="image/*"
+            className="text-sm file:mr-2 file:rounded file:border file:border-grey-300 file:bg-white file:px-3 file:py-1.5 file:text-sm"
+          />
         </div>
 
         <div>

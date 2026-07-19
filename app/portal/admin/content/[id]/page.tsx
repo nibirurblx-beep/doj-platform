@@ -18,7 +18,7 @@ export default async function EditContentPage({
   const service = createSupabaseServiceClient();
   const { data: post } = await service
     .from("content_posts")
-    .select("id, type, slug, title, excerpt, body_html, status")
+    .select("id, type, slug, title, excerpt, body_html, status, cover_image_url")
     .eq("id", id)
     .single();
 
@@ -38,6 +38,7 @@ export default async function EditContentPage({
           excerpt: post.excerpt ?? "",
           bodyHtml: post.body_html,
           status: post.status,
+          coverImageUrl: post.cover_image_url,
         }}
         canPublish={canPublish}
       />

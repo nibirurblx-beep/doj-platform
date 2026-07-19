@@ -45,6 +45,38 @@ function slugify(input: string): string {
     .slice(0, 80);
 }
 
+const COVER_BUCKET = "public-media";
+const MAX_COVER_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Upload a cover image to the public media bucket and return its public
+ * URL. Returns null when no new file was provided.
+ */
+async function uploadCover(
+  file: unknown,
+  slug: string,
+): Promise<{ url: string | null; error?: string }> {
+  if (!(file instanceof File) || file.size === 0) return { url: null };
+  if (file.size > MAX_COVER_BYTES) {
+    return { url: null, error: "Cover image too large (5 MB maximum)" };
+  }
+  if (!file.type.startsWith("image/")) {
+    return { url: null, error: "Cover must be an image" };
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const path = `content-covers/${slug}-${Date.now()}.${ext}`;
+
+  const service = createSupabaseServiceClient();
+  const bytes = await file.arrayBuffer();
+  const { error } = await service.storage
+    .from(COVER_BUCKET)
+    .upload(path, bytes, { contentType: file.type, upsert: false });
+  if (error) return { url: null, error: error.message };
+
+  const { data } = service.storage.from(COVER_BUCKET).getPublicUrl(path);
+  return { url: data.publicUrl };
+}
+
 const contentSchema = z.object({
   type: z.enum(["news", "page"]),
   title: z.string().min(3, "Title must be at least 3 characters").max(200),
@@ -114,6 +146,9 @@ export async function createContentAction(formData: FormData) {
     return { error: `A ${input.type} item with slug "${slug}" already exists` };
   }
 
+  const cover = await uploadCover(formData.get("coverImage"), slug);
+  if (cover.error) return { error: cover.error };
+
   const { data: post, error: insertError } = await service
     .from("content_posts")
     .insert({
@@ -122,6 +157,7 @@ export async function createContentAction(formData: FormData) {
       title: input.title,
       excerpt: input.excerpt || null,
       body_html: cleanHtml(input.bodyHtml),
+      cover_image_url: cover.url,
       status: "draft",
       author_id: actor.userId,
     })
@@ -191,14 +227,22 @@ export async function updateContentAction(formData: FormData) {
     }
   }
 
+  const cover = await uploadCover(formData.get("coverImage"), slug);
+  if (cover.error) return { error: cover.error };
+  const removeCover = formData.get("removeCover") === "on";
+
+  const update: Record<string, unknown> = {
+    title: input.title,
+    slug,
+    excerpt: input.excerpt || null,
+    body_html: cleanHtml(input.bodyHtml),
+  };
+  if (cover.url) update.cover_image_url = cover.url;
+  else if (removeCover) update.cover_image_url = null;
+
   const { error: updateError } = await service
     .from("content_posts")
-    .update({
-      title: input.title,
-      slug,
-      excerpt: input.excerpt || null,
-      body_html: cleanHtml(input.bodyHtml),
-    })
+    .update(update)
     .eq("id", id);
 
   if (updateError) return { error: updateError.message };

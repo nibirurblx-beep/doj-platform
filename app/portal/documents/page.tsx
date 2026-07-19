@@ -8,6 +8,7 @@ import {
   isSafePath,
   formatSize,
 } from "@/lib/documents/storage";
+import { getDocAccess, EMPLOYEE_FILES_ROOT } from "@/lib/documents/access";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { UploadForm, NewFolderForm, DeleteButton } from "./toolbar";
@@ -44,6 +45,11 @@ export default async function DocumentsPage({
       ? params.folder
       : "";
 
+  const access = await getDocAccess();
+  if (folder && !access.canAccess(`${folder}/x`)) {
+    redirect("/portal/documents");
+  }
+
   const service = createSupabaseServiceClient();
   const { data: entries, error } = await service.storage
     .from(DOCUMENTS_BUCKET)
@@ -68,7 +74,17 @@ export default async function DocumentsPage({
   }
 
   // Storage list returns folders as entries without metadata/id
-  const folders = (entries ?? []).filter((e) => !e.id);
+  const folders = (entries ?? [])
+    .filter((e) => !e.id)
+    .filter((e) => {
+      if (folder !== "") return true; // subfolders inherit the top-level rule
+      const name = e.name.toLowerCase();
+      if (name === EMPLOYEE_FILES_ROOT) return false; // managed via employee profiles
+      if (access.allOrgSlugs.includes(name)) {
+        return access.visibleOrgSlugs.includes(name);
+      }
+      return true;
+    });
   const files = (entries ?? []).filter(
     (e) => e.id && e.name !== FOLDER_PLACEHOLDER,
   );
@@ -198,7 +214,9 @@ export default async function DocumentsPage({
       </div>
 
       <p className="text-xs text-grey-500">
-        Stored privately in Supabase Storage. 20 MB per file.
+        Stored privately in Supabase Storage. 20 MB per file. A top-level
+        folder named after a department (doj, mpd, fbi) is visible only to
+        that department members.
         {canUpload ? "" : " Ask an administrator to add or remove files."}
       </p>
     </div>

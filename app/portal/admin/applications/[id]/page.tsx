@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/db/server";
-import { hasPermissionAnywhere } from "@/lib/permissions/server";
+import { hasPermissionAnywhere, getPermittedOrgIds } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -55,6 +55,24 @@ export default async function ApplicationReviewPage({
     .eq("id", id)
     .single();
   if (!app) notFound();
+
+  // Departmental scoping: block direct-URL access to other departments
+  const vacancyOrg = (app.vacancies as unknown as {
+    organisation_id?: string;
+  } | null)?.organisation_id;
+  const allScope = await getPermittedOrgIds(PERMISSIONS.APPLICATIONS_ALL_VIEW);
+  const deptScope = await getPermittedOrgIds(
+    PERMISSIONS.APPLICATIONS_DEPARTMENT_VIEW,
+  );
+  const allowedOrgIds = new Set([
+    ...(allScope.all ? [] : allScope.orgIds),
+    ...(deptScope.all ? [] : deptScope.orgIds),
+  ]);
+  const orgAllowed =
+    allScope.all || deptScope.all || (vacancyOrg ? allowedOrgIds.has(vacancyOrg) : false);
+  if (!orgAllowed) {
+    redirect("/portal/admin/applications");
+  }
 
   const canCreateEmployee = await hasPermissionAnywhere(
     PERMISSIONS.EMPLOYEES_CREATE,

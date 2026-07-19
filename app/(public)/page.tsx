@@ -13,21 +13,32 @@ function formatDate(value: string | null): string {
   });
 }
 
+// Department card images: drop files into public/brand/departments/
+// named doj.jpg, mpd.jpg, fbi.jpg. Cards fall back to navy if missing.
 const DEPARTMENTS = [
   {
+    code: "DOJ",
     name: "Department of Justice",
     blurb:
       "Prosecution, legal policy and oversight of the justice system across the community.",
+    image: "/brand/departments/doj.jpg",
+    href: "/departments/doj",
   },
   {
+    code: "MPD",
     name: "Metropolitan Police Department",
     blurb:
       "Frontline policing, public safety and criminal investigation within the city.",
+    image: "/brand/departments/mpd.png",
+    href: "/departments/mpd",
   },
   {
+    code: "FBI",
     name: "Federal Bureau of Investigation",
     blurb:
       "Federal investigations, intelligence and specialist operations.",
+    image: "/brand/departments/fbi.jpg",
+    href: "/departments/fbi",
   },
 ];
 
@@ -35,7 +46,7 @@ export default async function HomePage() {
   const service = createSupabaseServiceClient();
   const { data: news } = await service
     .from("content_posts")
-    .select("slug, title, excerpt, published_at")
+    .select("slug, title, excerpt, published_at, cover_image_url")
     .eq("type", "news")
     .eq("status", "published")
     .order("published_at", { ascending: false })
@@ -43,9 +54,19 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero */}
-      <section className="bg-navy-950 text-white">
-        <div className="mx-auto flex max-w-6xl flex-col items-start gap-10 px-6 py-20 md:flex-row md:items-center md:py-28">
+      {/* Hero. Banner artwork: /public/brand/hero.svg (swap the file, or
+          change the URL below to /brand/hero.jpg for a photo). */}
+      <section
+        className="relative bg-navy-950 bg-cover bg-center text-white"
+        style={{ backgroundImage: "url(/brand/hero.jpg)" }}
+      >
+        {/* Dark overlay for text contrast: solid on the left where the copy
+            sits, easing off to the right. Tune the opacities to taste. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/25"
+        />
+        <div className="relative mx-auto flex max-w-6xl flex-col items-start gap-10 px-6 py-20 md:flex-row md:items-center md:py-28">
           <div className="flex-1">
             <p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-gold-200">
               Department of Justice
@@ -73,7 +94,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="hidden md:block">
-            <Seal size={180} />
+            <Seal size={260} />
           </div>
         </div>
       </section>
@@ -97,17 +118,33 @@ export default async function HomePage() {
               <Link
                 key={post.slug}
                 href={`/news/${post.slug}`}
-                className="group rounded border border-grey-200 bg-white p-5 transition hover:border-navy-900"
+                className="group relative flex min-h-[300px] flex-col justify-end overflow-hidden rounded bg-navy-950 bg-cover bg-center p-5 text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+                style={
+                  post.cover_image_url
+                    ? { backgroundImage: `url(${post.cover_image_url})` }
+                    : undefined
+                }
               >
-                <p className="text-xs uppercase tracking-wide text-grey-500">
-                  {formatDate(post.published_at)}
-                </p>
-                <h3 className="mt-2 font-display text-lg leading-snug group-hover:underline">
-                  {post.title}
-                </h3>
-                {post.excerpt && (
-                  <p className="mt-2 text-sm text-grey-600">{post.excerpt}</p>
-                )}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-gradient-to-t from-navy-950/95 via-navy-950/60 to-navy-950/20"
+                />
+                <div className="relative">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-gold-200">
+                    {formatDate(post.published_at)}
+                  </p>
+                  <h3 className="mt-2 font-display text-xl leading-snug group-hover:underline">
+                    {post.title}
+                  </h3>
+                  {post.excerpt && (
+                    <p className="mt-2 text-sm text-navy-100 line-clamp-2">
+                      {post.excerpt}
+                    </p>
+                  )}
+                  <span className="mt-4 inline-block rounded bg-gold-600 px-3 py-1.5 text-xs font-semibold text-navy-950">
+                    Read more →
+                  </span>
+                </div>
               </Link>
             ))}
           </div>
@@ -121,11 +158,29 @@ export default async function HomePage() {
           <div className="mt-6 grid gap-6 md:grid-cols-3">
             {DEPARTMENTS.map((dept) => (
               <div
-                key={dept.name}
-                className="rounded border border-grey-200 bg-white p-5"
+                key={dept.code}
+                className="group relative flex min-h-[340px] flex-col justify-end overflow-hidden rounded bg-navy-950 bg-cover bg-center p-6 text-white"
+                style={{ backgroundImage: `url(${dept.image})` }}
               >
-                <h3 className="font-display text-lg">{dept.name}</h3>
-                <p className="mt-2 text-sm text-grey-600">{dept.blurb}</p>
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-gradient-to-t from-navy-950/95 via-navy-950/55 to-navy-950/20"
+                />
+                <div className="relative">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-200">
+                    {dept.code}
+                  </p>
+                  <h3 className="mt-1 font-display text-2xl leading-tight">
+                    {dept.name}
+                  </h3>
+                  <p className="mt-2 text-sm text-navy-100">{dept.blurb}</p>
+                  <Link
+                    href={dept.href}
+                    className="mt-4 inline-block rounded bg-gold-600 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-500"
+                  >
+                    Explore department →
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

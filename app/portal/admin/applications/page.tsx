@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/db/server";
-import { hasPermissionAnywhere } from "@/lib/permissions/server";
+import { hasPermissionAnywhere, getPermittedOrgIds } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -27,9 +27,21 @@ export default async function ApplicationsAdminPage({
 }: {
   searchParams: Promise<{ status?: string; vacancy?: string }>;
 }) {
-  if (!(await hasPermissionAnywhere(PERMISSIONS.APPLICATIONS_ALL_VIEW))) {
+  const canViewAll = await hasPermissionAnywhere(PERMISSIONS.APPLICATIONS_ALL_VIEW);
+  const canViewDept = await hasPermissionAnywhere(
+    PERMISSIONS.APPLICATIONS_DEPARTMENT_VIEW,
+  );
+  if (!canViewAll && !canViewDept) {
     redirect("/portal/admin");
   }
+
+  // Departmental scoping: leadership only sees applications for vacancies
+  // in their own organisation(s); "all" scope sees everything.
+  const scope = await getPermittedOrgIds(
+    canViewAll
+      ? PERMISSIONS.APPLICATIONS_ALL_VIEW
+      : PERMISSIONS.APPLICATIONS_DEPARTMENT_VIEW,
+  );
 
   const params = await searchParams;
   const statusFilter = STATUSES.includes(params.status ?? "") ? params.status : undefined;
@@ -38,13 +50,20 @@ export default async function ApplicationsAdminPage({
   const service = createSupabaseServiceClient();
 
   const [{ data: vacancies }, applicationsResult] = await Promise.all([
-    service.from("vacancies").select("id, title").order("title"),
+    (() => {
+      let q = service.from("vacancies").select("id, title").order("title");
+      if (!scope.all) q = q.in("organisation_id", scope.orgIds);
+      return q;
+    })(),
     (() => {
       let q = service
         .from("applications")
-        .select("id, app_number, status, submitted_at, user_id, vacancies(title)")
+        .select(
+          "id, app_number, status, submitted_at, user_id, vacancies!inner(title, organisation_id)",
+        )
         .order("submitted_at", { ascending: false })
         .limit(200);
+      if (!scope.all) q = q.in("vacancies.organisation_id", scope.orgIds);
       if (statusFilter) q = q.eq("status", statusFilter);
       if (vacancyFilter) q = q.eq("vacancy_id", vacancyFilter);
       return q;

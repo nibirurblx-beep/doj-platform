@@ -98,14 +98,14 @@ export function ConvertForm({
 
       <div>
         <label htmlFor="officeId" className="block text-sm font-medium">
-          Office <span className="text-grey-500">(optional)</span>
+          Division/Team <span className="text-grey-500">(optional)</span>
         </label>
         <select
           id="officeId"
           name="officeId"
           className="mt-1 w-full rounded border border-grey-300 px-3 py-2 text-sm"
         >
-          <option value="">No office</option>
+          <option value="">No division</option>
           {orgOffices.map((office) => (
             <option key={office.id} value={office.id}>
               {office.name}

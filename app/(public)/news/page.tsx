@@ -18,7 +18,7 @@ export default async function NewsListPage() {
   const service = createSupabaseServiceClient();
   const { data: posts } = await service
     .from("content_posts")
-    .select("slug, title, excerpt, published_at")
+    .select("slug, title, excerpt, published_at, cover_image_url")
     .eq("type", "news")
     .eq("status", "published")
     .order("published_at", { ascending: false })
@@ -36,7 +36,18 @@ export default async function NewsListPage() {
       ) : (
         <div className="mt-10 space-y-8">
           {posts.map((post) => (
-            <article key={post.slug} className="border-b border-grey-200 pb-8">
+            <article key={post.slug} className="flex gap-5 border-b border-grey-200 pb-8">
+              {post.cover_image_url && (
+                <Link href={`/news/${post.slug}`} className="hidden shrink-0 sm:block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.cover_image_url}
+                    alt=""
+                    className="h-28 w-44 rounded object-cover"
+                  />
+                </Link>
+              )}
+              <div>
               <p className="text-xs uppercase tracking-wide text-grey-500">
                 {formatDate(post.published_at)}
               </p>
@@ -57,6 +68,7 @@ export default async function NewsListPage() {
               >
                 Read more
               </Link>
+              </div>
             </article>
           ))}
         </div>

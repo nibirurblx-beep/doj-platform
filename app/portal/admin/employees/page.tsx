@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/db/server";
-import { hasPermissionAnywhere } from "@/lib/permissions/server";
+import { hasPermissionAnywhere, getPermittedOrgIds } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -17,24 +17,42 @@ export default async function EmployeesAdminPage({
 }: {
   searchParams: Promise<{ org?: string }>;
 }) {
-  if (!(await hasPermissionAnywhere(PERMISSIONS.EMPLOYEES_ALL_VIEW))) {
+  const canViewAll = await hasPermissionAnywhere(PERMISSIONS.EMPLOYEES_ALL_VIEW);
+  const canViewDept = await hasPermissionAnywhere(
+    PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW,
+  );
+  if (!canViewAll && !canViewDept) {
     redirect("/portal/admin");
   }
+
+  // Departmental scoping: leadership only sees organisations where they
+  // hold the view permission; "all" scope (Platform Admin) sees everything.
+  const scope = await getPermittedOrgIds(
+    canViewAll
+      ? PERMISSIONS.EMPLOYEES_ALL_VIEW
+      : PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW,
+  );
 
   const params = await searchParams;
   const service = createSupabaseServiceClient();
 
   const [{ data: organisations }, employeesResult] = await Promise.all([
-    service.from("organisations").select("id, name").order("name"),
+    (() => {
+      let q = service.from("organisations").select("id, name").order("name");
+      if (!scope.all) q = q.in("id", scope.orgIds);
+      return q;
+    })(),
     (() => {
       let q = service
         .from("employees")
         .select(
-          "id, employee_number, user_id, rank, title, status, started_at, organisations(name)",
+          "id, employee_number, user_id, rank, title, status, started_at, organisation_id, organisations(name)",
         )
         .order("started_at", { ascending: false })
         .limit(200);
-      if (params.org) q = q.eq("organisation_id", params.org);
+      if (!scope.all) q = q.in("organisation_id", scope.orgIds);
+      if (params.org && (scope.all || scope.orgIds.includes(params.org)))
+        q = q.eq("organisation_id", params.org);
       return q;
     })(),
   ]);
@@ -101,7 +119,12 @@ export default async function EmployeesAdminPage({
                 return (
                   <tr key={emp.id} className="border-b border-grey-100 hover:bg-grey-050">
                     <td className="px-5 py-3 font-mono">
-                      {emp.employee_number}
+                      <Link
+                        href={`/portal/admin/employees/${emp.id}`}
+                        className="text-navy-900 hover:underline"
+                      >
+                        {emp.employee_number}
+                      </Link>
                     </td>
                     <td className="px-5 py-3">
                       {nameById.get(emp.user_id) || "—"}

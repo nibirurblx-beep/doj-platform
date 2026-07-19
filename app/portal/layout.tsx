@@ -23,6 +23,8 @@ export default async function PortalLayout({
     PERMISSIONS.VACANCIES_MANAGE,
     PERMISSIONS.APPLICATIONS_ALL_VIEW,
     PERMISSIONS.EMPLOYEES_ALL_VIEW,
+  PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW,
+  PERMISSIONS.USERS_MANAGE,
   ];
   const showAdmin = myPermissions.some((p) =>
     adminKeys.includes(p.permission_key),

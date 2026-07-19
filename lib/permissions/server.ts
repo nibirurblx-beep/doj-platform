@@ -67,3 +67,38 @@ export async function userHasPermission(
   }
   return data === true;
 }
+
+export type OrgScope = { all: true } | { all: false; orgIds: string[] };
+
+/**
+ * Which organisations may the signed-in user exercise a permission in?
+ * Scope "all" on any grant (e.g. Platform Administrator) means every
+ * organisation; otherwise the exact organisation ids of the grants.
+ * Use this to FILTER admin list pages so leadership only sees their
+ * own department's records.
+ */
+export async function getPermittedOrgIds(
+  permissionKey: string,
+): Promise<OrgScope> {
+  const permissions = await getMyPermissions();
+  const grants = permissions.filter((p) => p.permission_key === permissionKey);
+  if (grants.some((g) => g.scope === "all")) return { all: true };
+  return { all: false, orgIds: [...new Set(grants.map((g) => g.organisation_id))] };
+}
+
+/** Organisation slugs the signed-in user is a member of. */
+export async function getMyOrgSlugs(): Promise<string[]> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data } = await supabase
+    .from("memberships")
+    .select("organisations(slug)")
+    .eq("user_id", user.id);
+  const slugs = (data ?? [])
+    .map((m) => (m.organisations as unknown as { slug: string } | null)?.slug)
+    .filter((s): s is string => Boolean(s));
+  return slugs;
+}
