@@ -46,7 +46,7 @@ export default async function UsersAdminPage() {
         ? service
             .from("memberships")
             .select(
-              "id, user_id, organisation_id, office_id, organisations(name), membership_roles(id, roles(name))",
+              "id, user_id, organisation_id, office_id, organisations(name), membership_roles(membership_id, role_id, roles(name))",
             )
             .in("user_id", userIds)
         : Promise.resolve({ data: [], error: null }),
@@ -153,7 +153,8 @@ export default async function UsersAdminPage() {
                     (m.organisations as unknown as { name: string } | null)?.name ?? "?";
                   const roleEntries =
                     (m.membership_roles as unknown as Array<{
-                      id: string;
+                      membership_id: string;
+                      role_id: string;
                       roles: { name: string } | null;
                     }>) ?? [];
                   return (
@@ -167,11 +168,14 @@ export default async function UsersAdminPage() {
                       ) : (
                         roleEntries.map((mr) => (
                           <span
-                            key={mr.id}
+                            key={`${mr.membership_id}:${mr.role_id}`}
                             className="flex items-center rounded bg-grey-100 px-2 py-1 text-xs"
                           >
                             {mr.roles?.name ?? "?"}
-                            <RevokeRoleButton membershipRoleId={mr.id} />
+                            <RevokeRoleButton
+                              membershipId={mr.membership_id}
+                              roleId={mr.role_id}
+                            />
                           </span>
                         ))
                       )}

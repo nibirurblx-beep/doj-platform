@@ -83,14 +83,21 @@ export function GrantRoleForm({
   );
 }
 
-export function RevokeRoleButton({ membershipRoleId }: { membershipRoleId: string }) {
+export function RevokeRoleButton({
+  membershipId,
+  roleId,
+}: {
+  membershipId: string;
+  roleId: string;
+}) {
   const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
     async (_prev, formData) => revokeRoleAction(formData),
     null,
   );
   return (
     <form action={formAction} className="inline">
-      <input type="hidden" name="membershipRoleId" value={membershipRoleId} />
+      <input type="hidden" name="membershipId" value={membershipId} />
+      <input type="hidden" name="roleId" value={roleId} />
       <button
         type="submit"
         disabled={isPending}

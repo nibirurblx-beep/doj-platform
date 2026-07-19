@@ -138,14 +138,19 @@ export async function revokeRoleAction(formData: FormData) {
   const actor = await requireUsersManager();
   if ("error" in actor) return { error: actor.error };
 
-  const membershipRoleId = formData.get("membershipRoleId");
-  if (typeof membershipRoleId !== "string") return { error: "Invalid input" };
+  const membershipId = formData.get("membershipId");
+  const roleId = formData.get("roleId");
+  if (typeof membershipId !== "string" || typeof roleId !== "string") {
+    return { error: "Invalid input" };
+  }
 
   const service = createSupabaseServiceClient();
+  // membership_roles is keyed by (membership_id, role_id) - no id column
   const { data: mr } = await service
     .from("membership_roles")
-    .select("id, role_id, membership_id, roles(name), memberships(organisation_id, user_id)")
-    .eq("id", membershipRoleId)
+    .select("role_id, membership_id, roles(name, organisation_id), memberships(organisation_id, user_id)")
+    .eq("membership_id", membershipId)
+    .eq("role_id", roleId)
     .single();
   if (!mr) return { error: "Role assignment not found" };
 
@@ -153,35 +158,35 @@ export async function revokeRoleAction(formData: FormData) {
     organisation_id: string;
     user_id: string;
   } | null;
+  const role = mr.roles as unknown as {
+    name: string;
+    organisation_id: string | null;
+  } | null;
 
   // Global roles can only be revoked by the owner
-  const { data: roleRow } = await service
-    .from("roles")
-    .select("organisation_id")
-    .eq("id", mr.role_id)
-    .single();
-  if (roleRow && roleRow.organisation_id === null) {
+  if (role && role.organisation_id === null) {
     const ownerCheck = requireOwnerForGlobalRoles(actor.email);
     if (!ownerCheck.ok) return { error: ownerCheck.error };
   }
 
   // Guard: don't let an admin strip their own last users.manage grant
-  if (membership?.user_id === actor.userId) {
+  if (membership?.user_id === actor.userId && !isOwnerEmail(actor.email)) {
     return { error: "You cannot revoke your own roles. Ask another administrator." };
   }
 
   const { error } = await service
     .from("membership_roles")
     .delete()
-    .eq("id", membershipRoleId);
+    .eq("membership_id", membershipId)
+    .eq("role_id", roleId);
   if (error) return { error: error.message };
 
   await logAudit(service, {
     action: "user.role.revoked",
     entityType: "membership_roles",
-    entityId: membershipRoleId,
+    entityId: membershipId,
     orgId: membership?.organisation_id ?? null,
-    reason: (mr.roles as unknown as { name: string } | null)?.name ?? null,
+    reason: role?.name ?? null,
     actor: actor.userId,
   });
 
