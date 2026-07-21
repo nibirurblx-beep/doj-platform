@@ -4,9 +4,29 @@ import { PERMISSIONS } from "@/lib/permissions/keys";
 import { createSupabaseServiceClient } from "@/lib/db/server";
 import Link from "next/link";
 
-export default async function PortalPage() {
+export default async function PortalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ denied?: string }>;
+}) {
+  const params = await searchParams;
+  const denied =
+    typeof params.denied === "string" && params.denied.length <= 40
+      ? params.denied
+      : null;
   const session = await getUserSession();
   const permissions = await getMyPermissions();
+
+  // Documents assigned to this user for signature
+  const serviceForSignatures = createSupabaseServiceClient();
+  const { data: mySignatures } = session
+    ? await serviceForSignatures
+        .from("signature_requests")
+        .select("id, title, requested_at, organisations(name)")
+        .eq("user_id", session.user.id)
+        .eq("status", "pending")
+        .order("requested_at")
+    : { data: [] };
   const has = (key: string) => permissions.some((p) => p.permission_key === key);
 
   const isLeadership =
@@ -72,6 +92,17 @@ export default async function PortalPage() {
 
   return (
     <div className="space-y-6">
+      {denied && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-medium text-amber-900">
+            You don&rsquo;t have access to {denied}.
+          </p>
+          <p className="mt-0.5 text-sm text-amber-800">
+            Your roles don&rsquo;t include that section. If you need it, ask a
+            platform administrator to grant the right role.
+          </p>
+        </div>
+      )}
       <div>
         <h1 className="font-display text-3xl">
           Welcome{session?.user.displayName ? `, ${session.user.displayName}` : ""}
@@ -92,6 +123,27 @@ export default async function PortalPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {(mySignatures ?? []).length > 0 && (
+        <div className="rounded border border-gold-600 bg-white p-5">
+          <h2 className="font-medium">Documents awaiting your signature</h2>
+          <ul className="mt-3 space-y-2">
+            {(mySignatures ?? []).map((req) => (
+              <li key={req.id}>
+                <Link
+                  href={`/portal/sign/${req.id}`}
+                  className="text-sm text-navy-900 underline-offset-2 hover:underline"
+                >
+                  ✍️ {req.title}
+                </Link>
+                <span className="ml-2 text-xs text-grey-500">
+                  {(req.organisations as unknown as { name: string } | null)?.name}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

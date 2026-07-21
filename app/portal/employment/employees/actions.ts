@@ -415,3 +415,111 @@ export async function setEmployeeStatusAction(formData: FormData) {
       : `${employee.employee_number} reinstated. Re-grant their roles from Administration > Users.`,
   };
 }
+
+// ----------------------------------------------------------------------------
+// Signature requests
+// ----------------------------------------------------------------------------
+export async function requestSignatureAction(formData: FormData) {
+  const user = await getActor();
+  if (!user) return { error: "Not signed in" };
+
+  const employeeId = formData.get("employeeId");
+  const documentPath = formData.get("documentPath");
+  const checklistKey = formData.get("checklistKey");
+  if (typeof employeeId !== "string" || typeof documentPath !== "string") {
+    return { error: "Invalid input" };
+  }
+  if (!documentPath.toLowerCase().endsWith(".pdf")) {
+    return { error: "Only PDF files can be sent for signature" };
+  }
+
+  const service = createSupabaseServiceClient();
+  const { data: employee } = await service
+    .from("employees")
+    .select("id, user_id, organisation_id, employee_number")
+    .eq("id", employeeId)
+    .single();
+  if (!employee) return { error: "Employee not found" };
+
+  if (!(await userHasPermission(PERMISSIONS.EMPLOYEES_UPDATE, employee.organisation_id))) {
+    return { error: "You cannot manage employees in that organisation" };
+  }
+
+  const { CHECKLIST_ITEMS } = await import("@/lib/employees/checklist");
+  const key =
+    typeof checklistKey === "string" &&
+    CHECKLIST_ITEMS.some((i) => i.key === checklistKey)
+      ? checklistKey
+      : null;
+
+  const title = documentPath.split("/").pop() ?? "Document";
+
+  const { data: created, error } = await service
+    .from("signature_requests")
+    .insert({
+      employee_id: employee.id,
+      user_id: employee.user_id,
+      organisation_id: employee.organisation_id,
+      document_path: documentPath,
+      title,
+      checklist_key: key,
+      requested_by: user.id,
+    })
+    .select("id")
+    .single();
+  if (error || !created) return { error: error?.message || "Could not create request" };
+
+  await logAudit(service, {
+    action: "signature.requested",
+    entityType: "signature_requests",
+    entityId: created.id,
+    orgId: employee.organisation_id,
+    reason: title,
+    actor: user.id,
+  });
+
+  revalidatePath(`/portal/employment/employees/${employeeId}`);
+  return {
+    success: true,
+    message: `Signature requested - it appears on their dashboard`,
+  };
+}
+
+export async function cancelSignatureAction(formData: FormData) {
+  const user = await getActor();
+  if (!user) return { error: "Not signed in" };
+
+  const requestId = formData.get("requestId");
+  if (typeof requestId !== "string") return { error: "Invalid input" };
+
+  const service = createSupabaseServiceClient();
+  const { data: request } = await service
+    .from("signature_requests")
+    .select("id, employee_id, organisation_id, status, title")
+    .eq("id", requestId)
+    .single();
+  if (!request) return { error: "Request not found" };
+  if (request.status !== "pending") return { error: "Only pending requests can be cancelled" };
+
+  if (!(await userHasPermission(PERMISSIONS.EMPLOYEES_UPDATE, request.organisation_id))) {
+    return { error: "You cannot manage employees in that organisation" };
+  }
+
+  const { error } = await service
+    .from("signature_requests")
+    .update({ status: "cancelled" })
+    .eq("id", requestId);
+  if (error) return { error: error.message };
+
+  await logAudit(service, {
+    action: "signature.cancelled",
+    entityType: "signature_requests",
+    entityId: requestId,
+    orgId: request.organisation_id,
+    reason: request.title,
+    actor: user.id,
+  });
+
+  revalidatePath(`/portal/employment/employees/${request.employee_id}`);
+  return { success: true, message: "Request cancelled" };
+}

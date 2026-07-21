@@ -7,6 +7,8 @@ import {
   uploadEmployeeFileAction,
   deleteEmployeeFileAction,
   setEmployeeStatusAction,
+  requestSignatureAction,
+  cancelSignatureAction,
 } from "./actions";
 import { CHECKLIST_ITEMS, type ChecklistState } from "@/lib/employees/checklist";
 
@@ -434,6 +436,94 @@ export function EmployeeStatusControls({
         Cancel
       </button>
       {state?.error && <span className="text-xs text-red-800">{state.error}</span>}
+    </form>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Signature request controls
+// ----------------------------------------------------------------------------
+export function RequestSignatureButton({
+  employeeId,
+  documentPath,
+}: {
+  employeeId: string;
+  documentPath: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => requestSignatureAction(formData),
+    null,
+  );
+
+  if (!open) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="rounded border border-grey-300 px-2 py-1 text-xs hover:border-navy-900"
+        >
+          Request signature
+        </button>
+        {state?.success && (
+          <span className="text-xs text-green-700">{state.message}</span>
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <form action={formAction} className="inline-flex flex-wrap items-center gap-1.5">
+      <input type="hidden" name="employeeId" value={employeeId} />
+      <input type="hidden" name="documentPath" value={documentPath} />
+      <select
+        name="checklistKey"
+        className="rounded border border-grey-300 px-2 py-1 text-xs"
+        title="Checklist item to tick automatically once signed"
+      >
+        <option value="">No checklist link</option>
+        {CHECKLIST_ITEMS.map((item) => (
+          <option key={item.key} value={item.key}>
+            Ticks: {item.label}
+          </option>
+        ))}
+      </select>
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded bg-navy-900 px-2 py-1 text-xs text-white disabled:opacity-50"
+      >
+        {isPending ? "…" : "Send"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="px-1 text-xs text-grey-500 hover:text-grey-800"
+      >
+        Cancel
+      </button>
+      {state?.error && <span className="text-xs text-red-800">{state.error}</span>}
+    </form>
+  );
+}
+
+export function CancelSignatureButton({ requestId }: { requestId: string }) {
+  const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => cancelSignatureAction(formData),
+    null,
+  );
+  return (
+    <form action={formAction} className="inline">
+      <input type="hidden" name="requestId" value={requestId} />
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded border border-grey-300 px-2 py-1 text-xs hover:border-red-800 hover:text-red-800 disabled:opacity-50"
+      >
+        {isPending ? "…" : "Cancel"}
+      </button>
+      {state?.error && <span className="ml-1 text-xs text-red-800">{state.error}</span>}
     </form>
   );
 }

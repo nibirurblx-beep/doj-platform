@@ -38,3 +38,11 @@ export function formatSize(bytes: number | null | undefined): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/** Resource links are stored as tiny JSON files with this extension. */
+export const LINK_EXTENSION = ".link";
+
+export function isSafeUrl(url: string): boolean {
+  if (url.length > 2000) return false;
+  return /^https?:\/\/[^\s]+$/i.test(url);
+}

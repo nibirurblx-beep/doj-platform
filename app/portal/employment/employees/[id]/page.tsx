@@ -10,7 +10,14 @@ import { EMPLOYEE_FILES_ROOT } from "@/lib/documents/access";
 import type { ChecklistState } from "@/lib/employees/checklist";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { Checklist, EmployeeFileUpload, DeleteEmployeeFileButton, EmployeeStatusControls } from "../widgets";
+import {
+  Checklist,
+  EmployeeFileUpload,
+  DeleteEmployeeFileButton,
+  EmployeeStatusControls,
+  RequestSignatureButton,
+  CancelSignatureButton,
+} from "../widgets";
 
 export const metadata = { title: "Employee" };
 
@@ -80,6 +87,12 @@ export default async function EmployeeDetailPage({
         .list(filePrefix, { limit: 100, sortBy: { column: "name", order: "asc" } })
     : { data: [] };
   const files = (fileEntries ?? []).filter((f) => f.id);
+
+  const { data: signatureRequests } = await service
+    .from("signature_requests")
+    .select("id, title, status, requested_at, signed_at, signed_path")
+    .eq("employee_id", emp.id)
+    .order("requested_at", { ascending: false });
 
   // Names for "ticked by" on the checklist
   const checklist = (emp.checklist ?? {}) as ChecklistState;
@@ -215,10 +228,18 @@ export default async function EmployeeDetailPage({
                       <td className="py-2 text-grey-600">{formatDate(file.created_at)}</td>
                       {canDeleteFiles && (
                         <td className="py-2 text-right">
-                          <DeleteEmployeeFileButton
-                            employeeId={emp.id}
-                            fileName={file.name}
-                          />
+                          <span className="inline-flex items-center gap-2">
+                            {file.name.toLowerCase().endsWith(".pdf") && (
+                              <RequestSignatureButton
+                                employeeId={emp.id}
+                                documentPath={`${filePrefix}/${file.name}`}
+                              />
+                            )}
+                            <DeleteEmployeeFileButton
+                              employeeId={emp.id}
+                              fileName={file.name}
+                            />
+                          </span>
                         </td>
                       )}
                     </tr>
@@ -228,6 +249,49 @@ export default async function EmployeeDetailPage({
             </table>
           )}
         </div>
+
+        {/* Signature requests */}
+        {(signatureRequests ?? []).length > 0 && (
+          <div className="mt-6 border-t border-grey-100 pt-4">
+            <h3 className="text-sm font-medium">Signature requests</h3>
+            <ul className="mt-2 space-y-1.5">
+              {(signatureRequests ?? []).map((req) => (
+                <li
+                  key={req.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded bg-grey-050 px-3 py-2 text-sm"
+                >
+                  <span>
+                    {req.title}{" "}
+                    <span
+                      className={`ml-1 rounded px-1.5 py-0.5 text-xs font-medium capitalize ${
+                        req.status === "signed"
+                          ? "bg-green-50 text-green-700"
+                          : req.status === "pending"
+                            ? "bg-amber-50 text-amber-800"
+                            : "bg-grey-100 text-grey-600"
+                      }`}
+                    >
+                      {req.status}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {req.status === "signed" && req.signed_path && (
+                      <a
+                        href={`/portal/documents/download?path=${encodeURIComponent(req.signed_path)}`}
+                        className="text-xs text-navy-900 underline"
+                      >
+                        Signed copy
+                      </a>
+                    )}
+                    {req.status === "pending" && canDeleteFiles && (
+                      <CancelSignatureButton requestId={req.id} />
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -8,8 +8,10 @@ import { PERMISSIONS } from "@/lib/permissions/keys";
 import {
   DOCUMENTS_BUCKET,
   FOLDER_PLACEHOLDER,
+  LINK_EXTENSION,
   isSafePath,
   isSafeFileName,
+  isSafeUrl,
 } from "@/lib/documents/storage";
 import { revalidatePath } from "next/cache";
 
@@ -268,4 +270,60 @@ export async function setFolderVisibilityAction(formData: FormData) {
 
   revalidatePath("/portal/documents");
   return { success: true, message: orgId ? "Folder is now private" : "Folder visible to all staff" };
+}
+
+/**
+ * Add a resource link: a named hyperlink that lives in the folder like a
+ * file, inherits its privacy, and opens the URL when clicked.
+ */
+export async function addResourceLinkAction(formData: FormData) {
+  const actor = await requireDocumentActor(PERMISSIONS.DOCUMENTS_CREATE);
+  if ("error" in actor) return { error: actor.error };
+
+  const folder = formData.get("folder");
+  const name = formData.get("name");
+  const url = formData.get("url");
+
+  if (typeof folder !== "string" || !isSafePath(folder)) {
+    return { error: "Invalid folder" };
+  }
+  if (typeof name !== "string" || !isSafeFileName(name)) {
+    return { error: "Name can only use letters, numbers, spaces, dots and dashes" };
+  }
+  if (typeof url !== "string" || !isSafeUrl(url.trim())) {
+    return { error: "Enter a full web address starting with http:// or https://" };
+  }
+
+  const { getDocAccess } = await import("@/lib/documents/access");
+  const access = await getDocAccess();
+  if (!access.canAccess(folder ? `${folder}/x` : "x")) {
+    return { error: "You do not have access to that folder" };
+  }
+
+  const path = folder
+    ? `${folder}/${name}${LINK_EXTENSION}`
+    : `${name}${LINK_EXTENSION}`;
+
+  const service = createSupabaseServiceClient();
+  const body = new TextEncoder().encode(JSON.stringify({ url: url.trim() }));
+  const { error } = await service.storage
+    .from(DOCUMENTS_BUCKET)
+    .upload(path, body, { contentType: "application/json", upsert: false });
+  if (error) {
+    if (error.message.toLowerCase().includes("exists")) {
+      return { error: "A resource with that name already exists here" };
+    }
+    return { error: error.message };
+  }
+
+  const { logAudit } = await import("@/lib/audit");
+  await logAudit(service, {
+    action: "document.link.added",
+    entityType: "storage_object",
+    reason: `${path} -> ${url.trim().slice(0, 200)}`,
+    actor: actor.userId,
+  });
+
+  revalidatePath("/portal/documents");
+  return { success: true, message: `Added ${name}` };
 }

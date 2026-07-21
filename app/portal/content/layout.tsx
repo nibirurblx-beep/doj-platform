@@ -19,7 +19,7 @@ export default async function ContentLayout({
   const allowed = permissions.some((p) =>
     CONTENT_PERMISSIONS.includes(p.permission_key),
   );
-  if (!allowed) redirect("/portal");
+  if (!allowed) redirect("/portal?denied=Content");
 
   return (
     <div className="space-y-6">

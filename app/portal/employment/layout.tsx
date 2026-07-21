@@ -24,7 +24,7 @@ export default async function EmploymentLayout({
   const allowed = permissions.some((p) =>
     EMPLOYMENT_PERMISSIONS.includes(p.permission_key),
   );
-  if (!allowed) redirect("/portal");
+  if (!allowed) redirect("/portal?denied=Employment register");
 
   return (
     <div className="space-y-6">

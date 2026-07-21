@@ -5,13 +5,14 @@ import { createSupabaseServiceClient } from "@/lib/db/server";
 import {
   DOCUMENTS_BUCKET,
   FOLDER_PLACEHOLDER,
+  LINK_EXTENSION,
   isSafePath,
   formatSize,
 } from "@/lib/documents/storage";
 import { getDocAccess, EMPLOYEE_FILES_ROOT } from "@/lib/documents/access";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { UploadForm, NewFolderForm, DeleteButton, DeleteFolderButton, FolderVisibilityControl } from "./toolbar";
+import { UploadForm, NewFolderForm, DeleteButton, DeleteFolderButton, FolderVisibilityControl, AddResourceForm } from "./toolbar";
 
 export const metadata = { title: "Documents" };
 
@@ -31,7 +32,7 @@ export default async function DocumentsPage({
 }) {
   await requireActiveUser();
   if (!(await hasPermissionAnywhere(PERMISSIONS.DOCUMENTS_INTERNAL_VIEW))) {
-    redirect("/portal");
+    redirect("/portal?denied=Documents");
   }
 
   const [canUpload, canDelete] = await Promise.all([
@@ -83,8 +84,32 @@ export default async function DocumentsPage({
       }
       return access.canAccess(`${path}/x`);
     });
-  const files = (entries ?? []).filter(
+  const allFiles = (entries ?? []).filter(
     (e) => e.id && e.name !== FOLDER_PLACEHOLDER,
+  );
+  const files = allFiles.filter((e) => !e.name.endsWith(LINK_EXTENSION));
+  const linkEntries = allFiles.filter((e) => e.name.endsWith(LINK_EXTENSION));
+
+  // Resolve link targets (small JSON files; capped for safety)
+  const links = await Promise.all(
+    linkEntries.slice(0, 50).map(async (entry) => {
+      const path = folder ? `${folder}/${entry.name}` : entry.name;
+      try {
+        const { data } = await service.storage
+          .from(DOCUMENTS_BUCKET)
+          .download(path);
+        const parsed = JSON.parse((await data?.text()) ?? "{}") as {
+          url?: string;
+        };
+        return {
+          name: entry.name.slice(0, -LINK_EXTENSION.length),
+          path,
+          url: typeof parsed.url === "string" ? parsed.url : null,
+        };
+      } catch {
+        return { name: entry.name.slice(0, -LINK_EXTENSION.length), path, url: null };
+      }
+    }),
   );
 
   const crumbs = folder ? folder.split("/") : [];
@@ -123,12 +148,13 @@ export default async function DocumentsPage({
         <div className="flex flex-wrap items-center gap-6 rounded border border-grey-200 bg-grey-050 p-3">
           <UploadForm folder={folder} />
           <NewFolderForm folder={folder} />
+          <AddResourceForm folder={folder} />
         </div>
       )}
 
       {/* Listing */}
       <div className="overflow-x-auto rounded border border-grey-200 bg-white">
-        {folders.length === 0 && files.length === 0 ? (
+        {folders.length === 0 && files.length === 0 && links.length === 0 ? (
           <p className="px-5 py-6 text-sm text-grey-600">
             This folder is empty.
           </p>
@@ -194,6 +220,32 @@ export default async function DocumentsPage({
                   </tr>
                 );
               })}
+              {links.map((link) => (
+                <tr key={link.path} className="border-b border-grey-100 hover:bg-grey-050">
+                  <td className="px-5 py-3">
+                    {link.url ? (
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-navy-900 hover:underline"
+                      >
+                        🔗 {link.name}
+                        <span className="ml-1.5 text-xs text-grey-500">↗</span>
+                      </a>
+                    ) : (
+                      <span className="text-grey-500">🔗 {link.name} (broken)</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-grey-600">Link</td>
+                  <td className="px-5 py-3 text-grey-600">—</td>
+                  {canDelete && (
+                    <td className="px-5 py-3 text-right">
+                      <DeleteButton path={link.path} />
+                    </td>
+                  )}
+                </tr>
+              ))}
               {files.map((entry) => {
                 const path = folder ? `${folder}/${entry.name}` : entry.name;
                 const meta = entry.metadata as {

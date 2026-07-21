@@ -20,7 +20,7 @@ export default async function AdminLayout({
   const allowed = permissions.some((p) =>
     ADMIN_AREA_PERMISSIONS.includes(p.permission_key),
   );
-  if (!allowed) redirect("/portal");
+  if (!allowed) redirect("/portal?denied=Administration");
 
   return (
     <div className="space-y-6">
