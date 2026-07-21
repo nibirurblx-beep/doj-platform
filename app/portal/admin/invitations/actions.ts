@@ -17,6 +17,8 @@ const inviteSchema = z.object({
   officeId: z.string().uuid().optional().or(z.literal("")),
   robloxUsername: z.string().max(50).optional().or(z.literal("")),
   discordUsername: z.string().max(50).optional().or(z.literal("")),
+  createEmployee: z.boolean(),
+  employeeRank: z.string().max(100).optional().or(z.literal("")),
 });
 
 async function hashToken(token: string): Promise<string> {
@@ -36,6 +38,8 @@ export async function createInvitationAction(formData: FormData) {
     officeId: formData.get("officeId") ?? "",
     robloxUsername: formData.get("robloxUsername") ?? "",
     discordUsername: formData.get("discordUsername") ?? "",
+    createEmployee: formData.get("createEmployee") === "on",
+    employeeRank: formData.get("employeeRank") ?? "",
   });
 
   if (!result.success) {
@@ -103,6 +107,8 @@ export async function createInvitationAction(formData: FormData) {
       office_id: input.officeId || null,
       roblox_username: input.robloxUsername || null,
       discord_username: input.discordUsername || null,
+      create_employee: input.createEmployee,
+      employee_rank: input.createEmployee ? input.employeeRank || null : null,
       invited_by: user.id,
     })
     .select("id")

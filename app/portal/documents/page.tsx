@@ -127,7 +127,7 @@ export default async function DocumentsPage({
       )}
 
       {/* Listing */}
-      <div className="rounded border border-grey-200 bg-white">
+      <div className="overflow-x-auto rounded border border-grey-200 bg-white">
         {folders.length === 0 && files.length === 0 ? (
           <p className="px-5 py-6 text-sm text-grey-600">
             This folder is empty.

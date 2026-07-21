@@ -192,6 +192,49 @@ export async function activateAccountAction(
     });
   }
 
+  // Pre-staged employment: the invitation asked for an employee record
+  if (inv.create_employee) {
+    const { data: org } = await service
+      .from("organisations")
+      .select("slug")
+      .eq("id", inv.organisation_id)
+      .single();
+    if (org) {
+      const { data: employeeNumber, error: numberError } = await service.rpc(
+        "next_employee_number",
+        { p_org_slug: org.slug },
+      );
+      if (!numberError && employeeNumber) {
+        const { data: employee, error: employeeError } = await service
+          .from("employees")
+          .insert({
+            user_id: userId,
+            organisation_id: inv.organisation_id,
+            office_id: inv.office_id,
+            employee_number: employeeNumber,
+            rank: inv.employee_rank || null,
+            status: "active",
+          })
+          .select("id")
+          .single();
+        if (employeeError) {
+          console.error("Pre-staged employee creation failed:", employeeError.message);
+        } else if (employee) {
+          await logAudit(service, {
+            action: "employee.created",
+            entityType: "employees",
+            entityId: employee.id,
+            orgId: inv.organisation_id,
+            reason: "invitation",
+            actor: userId,
+          });
+        }
+      } else {
+        console.error("Pre-staged employee number failed:", numberError?.message);
+      }
+    }
+  }
+
   // Mark invitation as accepted
   await service
     .from("invitations")

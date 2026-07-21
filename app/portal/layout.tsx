@@ -4,6 +4,7 @@ import { getMyPermissions } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
 import Link from "next/link";
 import { PortalNav } from "@/components/portal/nav";
+import { MobilePortalNav } from "@/components/portal/mobile-nav";
 import { UserMenu } from "@/components/portal/user-menu";
 import { Seal } from "@/components/brand/seal";
 
@@ -64,15 +65,18 @@ export default async function PortalLayout({
       {/* Main content */}
       <div className="flex flex-1 flex-col">
         {/* Top bar */}
-        <header className="border-b border-grey-200 bg-white">
-          <div className="flex items-center justify-between px-6 py-4">
-            <h1 className="font-display text-xl">Portal</h1>
+        <header className="relative border-b border-grey-200 bg-white">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-6 md:py-4">
+            <div className="flex items-center gap-3">
+              <MobilePortalNav items={navItems} />
+              <h1 className="font-display text-lg md:text-xl">Portal</h1>
+            </div>
             <UserMenu user={session.user} />
           </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 p-6 portal-fade">
+        <main className="flex-1 p-4 portal-fade md:p-6">
           {children}
         </main>
       </div>

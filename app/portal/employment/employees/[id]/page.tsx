@@ -183,7 +183,7 @@ export default async function EmployeeDetailPage({
           </div>
         )}
 
-        <div className="mt-4">
+        <div className="mt-4 overflow-x-auto">
           {files.length === 0 ? (
             <p className="text-sm text-grey-500">No files uploaded yet.</p>
           ) : (

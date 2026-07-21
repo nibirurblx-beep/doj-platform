@@ -44,7 +44,7 @@ export function UserMenu({ user }: { user: CurrentUser }) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 rounded border border-grey-200 bg-white shadow-lg">
+        <div className="absolute right-0 z-50 mt-2 w-48 rounded border border-grey-200 bg-white shadow-lg">
           <div className="border-b border-grey-200 p-3">
             <p className="text-sm font-medium">{user.displayName}</p>
             <p className="text-xs text-grey-500">{user.email}</p>

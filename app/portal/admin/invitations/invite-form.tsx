@@ -34,6 +34,8 @@ export function InviteForm({
     organisations[0]?.id ?? "",
   );
 
+  const [createEmployee, setCreateEmployee] = useState(false);
+
   const [state, formAction, isPending] = useActionState(
     async (_prevState: unknown, formData: FormData) => {
       return createInvitationAction(formData);
@@ -151,6 +153,36 @@ export function InviteForm({
             className="mt-1 w-full rounded border border-grey-300 px-3 py-2 text-sm"
           />
         </div>
+      </div>
+
+      <div className="rounded border border-grey-200 bg-grey-050 p-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            name="createEmployee"
+            checked={createEmployee}
+            onChange={(e) => setCreateEmployee(e.target.checked)}
+          />
+          Also create an employee record when they activate
+        </label>
+        {createEmployee && (
+          <div className="mt-2">
+            <label htmlFor="invite-rank" className="block text-sm">
+              Rank <span className="text-grey-500">(optional)</span>
+            </label>
+            <input
+              id="invite-rank"
+              name="employeeRank"
+              maxLength={100}
+              placeholder="e.g. Special Agent"
+              className="mt-1 w-full rounded border border-grey-300 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-grey-500">
+              On activation they get a membership, the chosen role, and an
+              employee number in one step — no separate Add employee needed.
+            </p>
+          </div>
+        )}
       </div>
 
       {state && "error" in state && state.error && (
