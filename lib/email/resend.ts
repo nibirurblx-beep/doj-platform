@@ -11,7 +11,10 @@ function requireEnv(name: string): string {
 
 const resend = new Resend(requireEnv("RESEND_API_KEY"));
 
-const SENDER_EMAIL = "noreply@resend.dev"; // or custom domain once configured
+// Sender: set EMAIL_FROM to an address at your verified Resend domain.
+// Falls back to Resend's test sender (delivers only to your own address).
+const SENDER_EMAIL =
+  process.env.EMAIL_FROM || "DOJ Roleplay <onboarding@resend.dev>"; // or custom domain once configured
 
 /**
  * Send an invitation email with an activation link.

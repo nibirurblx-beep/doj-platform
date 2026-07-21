@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: {
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s | Department of Justice",
   },
   description:
-    "Official website of the DoJ OSFUSA roleplay community. " +
+    "Official website of the Department of Justice roleplay community. " +
     "A fictional platform. Not affiliated with the United States Government, " +
     "the United States Department of Justice, Roblox Corporation or Discord.",
 };
@@ -19,6 +20,7 @@ export default function RootLayout({
     <html lang="en-GB">
       <body className="min-h-screen bg-paper text-ink antialiased">
         {children}
+        <Analytics />
       </body>
     </html>
   );

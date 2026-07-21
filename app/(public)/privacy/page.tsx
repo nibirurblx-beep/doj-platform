@@ -80,7 +80,9 @@ export default function PrivacyPage() {
         <p>
           The platform sets only essential cookies: those that keep you signed
           in, and short-lived security tokens during Discord connection. There
-          are no advertising or analytics cookies.
+          are no advertising or analytics cookies. We measure page views with
+          Vercel Analytics, which is cookie-free and aggregated; it does
+          not identify or track individual visitors.
         </p>
       </Section>
 
