@@ -499,7 +499,9 @@ export async function cancelSignatureAction(formData: FormData) {
     .eq("id", requestId)
     .single();
   if (!request) return { error: "Request not found" };
-  if (request.status !== "pending") return { error: "Only pending requests can be cancelled" };
+  if (request.status !== "pending" && request.status !== "pending_employer") {
+    return { error: "Only open requests can be cancelled" };
+  }
 
   if (!(await userHasPermission(PERMISSIONS.EMPLOYEES_UPDATE, request.organisation_id))) {
     return { error: "You cannot manage employees in that organisation" };

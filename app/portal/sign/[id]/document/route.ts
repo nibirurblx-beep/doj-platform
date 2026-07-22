@@ -26,10 +26,13 @@ export async function GET(
   const service = createSupabaseServiceClient();
   const { data: sigRequest } = await service
     .from("signature_requests")
-    .select("id, user_id, status, document_path, signed_path, title")
+    .select("id, user_id, requested_by, status, document_path, signed_path, title")
     .eq("id", id)
     .single();
-  if (!sigRequest || sigRequest.user_id !== user.id) {
+  if (
+    !sigRequest ||
+    (sigRequest.user_id !== user.id && sigRequest.requested_by !== user.id)
+  ) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   if (sigRequest.status === "cancelled") {

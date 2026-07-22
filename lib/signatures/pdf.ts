@@ -153,3 +153,123 @@ export async function appendSignatureCertificate(
 
   return pdf.save();
 }
+
+export interface SignatureBox {
+  page: number; // 0-indexed
+  x: number; // normalised 0-1 from left
+  y: number; // normalised 0-1 from top
+  w: number;
+  h: number;
+  signer: "employee" | "employer";
+}
+
+/** Stamps a signature image into each of the given boxes on the document. */
+export async function stampSignatureIntoBoxes(
+  pdfBytes: Uint8Array,
+  signaturePng: Uint8Array,
+  boxes: SignatureBox[],
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const image = await pdf.embedPng(signaturePng);
+  const pages = pdf.getPages();
+
+  for (const box of boxes) {
+    const page = pages[box.page];
+    if (!page) continue;
+    const { width, height } = page.getSize();
+    const boxW = box.w * width;
+    const boxH = box.h * height;
+    const dims = image.scaleToFit(boxW, boxH);
+    page.drawImage(image, {
+      x: box.x * width + (boxW - dims.width) / 2,
+      // normalised y is from the top; pdf-lib origin is bottom-left
+      y: (1 - box.y - box.h) * height + (boxH - dims.height) / 2,
+      width: dims.width,
+      height: dims.height,
+    });
+  }
+  return pdf.save();
+}
+
+export interface CompletionStamp {
+  documentTitle: string;
+  requestId: string;
+  employeeName: string;
+  employeeNumber: string;
+  organisationName: string;
+  employeeSignedAtIso: string | null;
+  employerName: string | null;
+  employerSignedAtIso: string | null;
+}
+
+/** Appends the completion certificate recording every signer. */
+export async function appendCompletionCertificate(
+  pdfBytes: Uint8Array,
+  stamp: CompletionStamp,
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const serif = await pdf.embedFont(StandardFonts.TimesRoman);
+  const serifBold = await pdf.embedFont(StandardFonts.TimesRomanBold);
+
+  const page = pdf.addPage([595.28, 841.89]);
+  const { width, height } = page.getSize();
+  const margin = 64;
+  let y = height - 90;
+
+  page.drawRectangle({ x: 0, y: height - 8, width, height: 8, color: GOLD });
+  page.drawText("SIGNATURE CERTIFICATE", {
+    x: margin, y, size: 22, font: serifBold, color: NAVY,
+  });
+  y -= 18;
+  page.drawText("Department of Justice Roleplay Community", {
+    x: margin, y, size: 10, font: serif, color: GREY,
+  });
+  y -= 30;
+  page.drawLine({
+    start: { x: margin, y }, end: { x: width - margin, y },
+    thickness: 1, color: GOLD,
+  });
+  y -= 34;
+
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString("en-GB", {
+      day: "2-digit", month: "long", year: "numeric",
+      hour: "2-digit", minute: "2-digit", timeZone: "UTC",
+    }) + " UTC";
+
+  const row = (label: string, value: string) => {
+    page.drawText(label.toUpperCase(), { x: margin, y, size: 8, font: serifBold, color: GREY });
+    page.drawText(value, { x: margin, y: y - 15, size: 13, font: serif, color: NAVY });
+    y -= 44;
+  };
+
+  row("Document", stamp.documentTitle);
+  row("Employee signer", `${stamp.employeeName} · ${stamp.employeeNumber} · ${stamp.organisationName}`);
+  if (stamp.employeeSignedAtIso) row("Employee signed", fmt(stamp.employeeSignedAtIso));
+  if (stamp.employerName) {
+    row("Employer signer", stamp.employerName);
+    if (stamp.employerSignedAtIso) row("Employer signed", fmt(stamp.employerSignedAtIso));
+  }
+
+  y -= 4;
+  const statement =
+    "Signed electronically through the community portal. Signatures were " +
+    "placed at the positions chosen when the request was created, and this " +
+    "certificate records the signers and forms part of the document. " +
+    `Reference: ${stamp.requestId}`;
+  const words = statement.split(" ");
+  let line = "";
+  const lines: string[] = [];
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (serif.widthOfTextAtSize(candidate, 9) > width - margin * 2) {
+      lines.push(line); line = word;
+    } else line = candidate;
+  }
+  if (line) lines.push(line);
+  for (const l of lines) {
+    page.drawText(l, { x: margin, y, size: 9, font: serif, color: GREY });
+    y -= 13;
+  }
+  return pdf.save();
+}

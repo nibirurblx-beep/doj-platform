@@ -15,7 +15,6 @@ import {
   EmployeeFileUpload,
   DeleteEmployeeFileButton,
   EmployeeStatusControls,
-  RequestSignatureButton,
   CancelSignatureButton,
 } from "../widgets";
 
@@ -90,7 +89,7 @@ export default async function EmployeeDetailPage({
 
   const { data: signatureRequests } = await service
     .from("signature_requests")
-    .select("id, title, status, requested_at, signed_at, signed_path")
+    .select("id, title, status, requested_at, signed_at, signed_path, requested_by")
     .eq("employee_id", emp.id)
     .order("requested_at", { ascending: false });
 
@@ -230,10 +229,12 @@ export default async function EmployeeDetailPage({
                         <td className="py-2 text-right">
                           <span className="inline-flex items-center gap-2">
                             {file.name.toLowerCase().endsWith(".pdf") && (
-                              <RequestSignatureButton
-                                employeeId={emp.id}
-                                documentPath={`${filePrefix}/${file.name}`}
-                              />
+                              <Link
+                                href={`/portal/employment/employees/${emp.id}/request-signature?file=${encodeURIComponent(file.name)}`}
+                                className="rounded border border-grey-300 px-2 py-1 text-xs hover:border-navy-900"
+                              >
+                                Request signature
+                              </Link>
                             )}
                             <DeleteEmployeeFileButton
                               employeeId={emp.id}
@@ -263,15 +264,21 @@ export default async function EmployeeDetailPage({
                   <span>
                     {req.title}{" "}
                     <span
-                      className={`ml-1 rounded px-1.5 py-0.5 text-xs font-medium capitalize ${
-                        req.status === "signed"
+                      className={`ml-1 rounded px-1.5 py-0.5 text-xs font-medium ${
+                        req.status === "signed" || req.status === "complete"
                           ? "bg-green-50 text-green-700"
-                          : req.status === "pending"
+                          : req.status === "pending" || req.status === "pending_employer"
                             ? "bg-amber-50 text-amber-800"
                             : "bg-grey-100 text-grey-600"
                       }`}
                     >
-                      {req.status}
+                      {req.status === "pending"
+                        ? "Awaiting employee"
+                        : req.status === "pending_employer"
+                          ? "Awaiting employer"
+                          : req.status === "complete" || req.status === "signed"
+                            ? "Complete"
+                            : "Cancelled"}
                     </span>
                   </span>
                   <span className="flex items-center gap-2">
@@ -283,9 +290,16 @@ export default async function EmployeeDetailPage({
                         Signed copy
                       </a>
                     )}
-                    {req.status === "pending" && canDeleteFiles && (
-                      <CancelSignatureButton requestId={req.id} />
+                    {req.status === "pending_employer" && (
+                      <Link
+                        href={`/portal/sign/${req.id}`}
+                        className="text-xs text-navy-900 underline"
+                      >
+                        Countersign
+                      </Link>
                     )}
+                    {(req.status === "pending" || req.status === "pending_employer") &&
+                      canDeleteFiles && <CancelSignatureButton requestId={req.id} />}
                   </span>
                 </li>
               ))}

@@ -22,9 +22,10 @@ export default async function PortalPage({
   const { data: mySignatures } = session
     ? await serviceForSignatures
         .from("signature_requests")
-        .select("id, title, requested_at, organisations(name)")
-        .eq("user_id", session.user.id)
-        .eq("status", "pending")
+        .select("id, title, requested_at, user_id, requested_by, status, organisations(name)")
+        .or(
+          `and(user_id.eq.${session.user.id},status.eq.pending),and(requested_by.eq.${session.user.id},status.eq.pending_employer)`,
+        )
         .order("requested_at")
     : { data: [] };
   const has = (key: string) => permissions.some((p) => p.permission_key === key);
@@ -137,6 +138,11 @@ export default async function PortalPage({
                   className="text-sm text-navy-900 underline-offset-2 hover:underline"
                 >
                   ✍️ {req.title}
+                  {req.status === "pending_employer" && (
+                    <span className="ml-1.5 rounded bg-gold-600 px-1.5 py-0.5 text-[10px] font-medium text-navy-950">
+                      Countersign
+                    </span>
+                  )}
                 </Link>
                 <span className="ml-2 text-xs text-grey-500">
                   {(req.organisations as unknown as { name: string } | null)?.name}
