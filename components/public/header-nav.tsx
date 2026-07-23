@@ -101,7 +101,7 @@ function AuthLinks({ auth, mobile }: { auth: AuthState; mobile?: boolean }) {
       </span>
       <Link
         href={destination.href}
-        className="rounded border border-navy-400 px-3 py-1.5 hover:border-white"
+        className="whitespace-nowrap rounded border border-navy-400 px-3 py-1.5 hover:border-white"
       >
         {destination.label}
       </Link>
@@ -159,7 +159,7 @@ export function HeaderNav({
     <>
       {/* Desktop nav */}
       <nav aria-label="Primary" className="hidden md:block">
-        <ul className="flex items-center gap-6 text-sm font-medium">
+        <ul className="flex items-center gap-5 whitespace-nowrap text-sm font-medium">
           <li ref={deptRef} className="relative">
             <button
               type="button"
