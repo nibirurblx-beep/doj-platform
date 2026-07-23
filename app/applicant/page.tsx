@@ -4,6 +4,7 @@ import Link from "next/link";
 
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
   submitted: { label: "Submitted", tone: "bg-blue-50 text-navy-900" },
+  interview: { label: "Interview scheduled", tone: "bg-amber-50 text-amber-900" },
   under_review: { label: "Under review", tone: "bg-amber-50 text-amber-800" },
   accepted: { label: "Accepted", tone: "bg-green-50 text-green-700" },
   rejected: { label: "Unsuccessful", tone: "bg-red-50 text-red-800" },
@@ -25,7 +26,7 @@ export default async function ApplicantPage() {
   const supabase = await createSupabaseServerClient();
   const { data: applications } = await supabase
     .from("applications")
-    .select("id, app_number, status, submitted_at, vacancies(title, slug)")
+    .select("id, app_number, status, submitted_at, interview_at, interview_note, vacancies(title, slug)")
     .order("submitted_at", { ascending: false });
 
   return (
@@ -80,6 +81,19 @@ export default async function ApplicantPage() {
                       {" · "}
                       Submitted {formatDate(app.submitted_at)}
                     </p>
+                    {app.status === "interview" && app.interview_at && (
+                      <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-900">
+                        Interview:{" "}
+                        {new Date(app.interview_at).toLocaleString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {app.interview_note ? ` — ${app.interview_note}` : ""}
+                      </p>
+                    )}
                   </div>
                   <span
                     className={`rounded px-2.5 py-1 text-xs font-medium ${status.tone}`}

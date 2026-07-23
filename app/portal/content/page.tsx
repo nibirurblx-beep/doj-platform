@@ -23,7 +23,8 @@ export default async function ContentListPage({
   searchParams: Promise<{ type?: string }>;
 }) {
   const params = await searchParams;
-  const filterType = params.type === "page" ? "page" : params.type === "news" ? "news" : null;
+  const validTypes = ["page", "news", "press_release", "case_summary"];
+  const filterType = validTypes.includes(params.type ?? "") ? (params.type as string) : null;
 
   const service = createSupabaseServiceClient();
   let query = service
@@ -38,6 +39,8 @@ export default async function ContentListPage({
   const tabs = [
     { href: "/portal/content", label: "All", active: !filterType },
     { href: "/portal/content?type=news", label: "News", active: filterType === "news" },
+    { href: "/portal/content?type=press_release", label: "Press releases", active: filterType === "press_release" },
+    { href: "/portal/content?type=case_summary", label: "Case summaries", active: filterType === "case_summary" },
     { href: "/portal/content?type=page", label: "Pages", active: filterType === "page" },
   ];
 
@@ -65,6 +68,18 @@ export default async function ContentListPage({
             className="rounded bg-navy-900 px-3 py-1.5 text-sm text-white hover:bg-navy-800"
           >
             New news post
+          </Link>
+          <Link
+            href="/portal/content/new?type=press_release"
+            className="rounded border border-grey-300 bg-white px-3 py-1.5 text-sm hover:border-navy-900"
+          >
+            New press release
+          </Link>
+          <Link
+            href="/portal/content/new?type=case_summary"
+            className="rounded border border-grey-300 bg-white px-3 py-1.5 text-sm hover:border-navy-900"
+          >
+            New case summary
           </Link>
           <Link
             href="/portal/content/new?type=page"

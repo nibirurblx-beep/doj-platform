@@ -475,3 +475,41 @@ export async function deleteUserAction(formData: FormData) {
   revalidatePath("/portal/admin/users");
   return { success: true, message: `Deleted ${targetEmail}` };
 }
+
+/** Generate a one-time password reset link for DMing to a user directly -
+ *  closes the gap when email delivery is unavailable. */
+export async function generateResetLinkAction(formData: FormData) {
+  const actor = await requireUsersManager();
+  if ("error" in actor) return { error: actor.error };
+
+  const userId = formData.get("userId");
+  if (typeof userId !== "string") return { error: "Invalid input" };
+
+  const service = createSupabaseServiceClient();
+  const { data: target } = await service.auth.admin.getUserById(userId);
+  if (!target.user?.email) return { error: "User not found" };
+
+  const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+  const { data, error } = await service.auth.admin.generateLink({
+    type: "recovery",
+    email: target.user.email,
+    options: { redirectTo: `${site}/auth/reset` },
+  });
+  if (error || !data.properties?.action_link) {
+    return { error: error?.message || "Could not generate the link" };
+  }
+
+  await logAudit(service, {
+    action: "user.reset_link_generated",
+    entityType: "auth.user",
+    entityId: userId,
+    actor: actor.userId,
+  });
+
+  return {
+    success: true,
+    message:
+      "One-time reset link generated. Send it to this person only - it lets whoever opens it set a new password on their account.",
+    resetLink: data.properties.action_link,
+  };
+}

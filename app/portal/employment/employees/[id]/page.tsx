@@ -16,6 +16,7 @@ import {
   DeleteEmployeeFileButton,
   EmployeeStatusControls,
   CancelSignatureButton,
+  DirectoryToggle,
 } from "../widgets";
 
 export const metadata = { title: "Employee" };
@@ -46,7 +47,7 @@ export default async function EmployeeDetailPage({
   const { data: emp } = await service
     .from("employees")
     .select(
-      "id, employee_number, user_id, rank, status, started_at, ended_at, end_reason, checklist, organisation_id, organisations(name, slug), offices(name)",
+      "id, employee_number, user_id, rank, status, started_at, ended_at, end_reason, checklist, directory_visible, organisation_id, organisations(name, slug), offices(name)",
     )
     .eq("id", id)
     .single();
@@ -134,7 +135,8 @@ export default async function EmployeeDetailPage({
           {emp.status}
         </span>
         {canEdit && (
-          <span className="ml-auto">
+          <span className="ml-auto inline-flex flex-wrap items-center gap-2">
+            <DirectoryToggle employeeId={emp.id} visible={emp.directory_visible} />
             <EmployeeStatusControls employeeId={emp.id} status={emp.status} />
           </span>
         )}

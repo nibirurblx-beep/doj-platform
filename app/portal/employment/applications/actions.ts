@@ -22,12 +22,13 @@ async function requireApplicationActor(permission: string) {
 
 const statusSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["under_review", "accepted", "rejected"]),
+  status: z.enum(["under_review", "interview", "accepted", "rejected"]),
 });
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  submitted: ["under_review", "accepted", "rejected"],
-  under_review: ["accepted", "rejected"],
+  submitted: ["under_review", "interview", "accepted", "rejected"],
+  under_review: ["interview", "accepted", "rejected"],
+  interview: ["accepted", "rejected", "under_review"],
   accepted: [],
   rejected: ["under_review"], // allow reopening a rejection
   withdrawn: [],
@@ -131,4 +132,65 @@ export async function addApplicationNoteAction(formData: FormData) {
 
   revalidatePath(`/portal/employment/applications/${parsed.data.applicationId}`);
   return { success: true, message: "Note added" };
+}
+
+/** Schedule an interview: moves the application to the interview stage
+ *  with a date/time the applicant can see on their dashboard. */
+export async function scheduleInterviewAction(formData: FormData) {
+  const actor = await requireApplicationActor(
+    PERMISSIONS.APPLICATIONS_STATUS_CHANGE,
+  );
+  if ("error" in actor) return { error: actor.error };
+
+  const applicationId = formData.get("applicationId");
+  const interviewAt = formData.get("interviewAt");
+  const note = formData.get("note");
+  if (
+    typeof applicationId !== "string" ||
+    typeof interviewAt !== "string" ||
+    !interviewAt
+  ) {
+    return { error: "An interview date and time is required" };
+  }
+  const when = new Date(interviewAt);
+  if (Number.isNaN(when.getTime()) || when < new Date()) {
+    return { error: "The interview must be in the future" };
+  }
+
+  const service = createSupabaseServiceClient();
+  const { data: application } = await service
+    .from("applications")
+    .select("id, status, organisation_id")
+    .eq("id", applicationId)
+    .single();
+  if (!application) return { error: "Application not found" };
+  if (!["submitted", "under_review"].includes(application.status)) {
+    return { error: "Interviews can only be scheduled during review" };
+  }
+
+  const { error } = await service
+    .from("applications")
+    .update({
+      status: "interview",
+      interview_at: when.toISOString(),
+      interview_note:
+        typeof note === "string" ? note.trim().slice(0, 1000) || null : null,
+    })
+    .eq("id", applicationId);
+  if (error) return { error: error.message };
+
+  await logAudit(service, {
+    action: "application.interview_scheduled",
+    entityType: "applications",
+    entityId: applicationId,
+    orgId: application.organisation_id,
+    reason: when.toISOString(),
+    actor: actor.userId,
+  });
+  revalidatePath(`/portal/employment/applications/${applicationId}`);
+  revalidatePath("/portal/employment/applications");
+  return {
+    success: true,
+    message: "Interview scheduled - the applicant can see the details",
+  };
 }

@@ -10,6 +10,7 @@ import {
   updateUserAction,
   setMembershipDivisionAction,
   deleteUserAction,
+  generateResetLinkAction,
 } from "./actions";
 
 type ActionResult = { error?: string; success?: boolean; message?: string } | null;
@@ -400,5 +401,47 @@ export function DeleteUserButton({
         {isPending ? "Deleting…" : "Delete"}
       </button>
     </form>
+  );
+}
+
+export function ResetLinkButton({ userId }: { userId: string }) {
+  const [state, formAction, isPending] = useActionState<
+    { error?: string; success?: boolean; message?: string; resetLink?: string } | null,
+    FormData
+  >(async (_prev, formData) => generateResetLinkAction(formData), null);
+
+  return (
+    <div className="inline-block">
+      <form action={formAction} className="inline">
+        <input type="hidden" name="userId" value={userId} />
+        <button
+          type="submit"
+          disabled={isPending}
+          className="rounded border border-grey-300 px-2 py-1 text-xs hover:border-navy-900 disabled:opacity-50"
+        >
+          {isPending ? "…" : "Reset link"}
+        </button>
+      </form>
+      {state?.error && (
+        <p className="mt-1 text-xs text-red-800">{state.error}</p>
+      )}
+      {state?.success && state.resetLink && (
+        <div className="mt-1.5 max-w-md rounded bg-amber-50 p-2">
+          <p className="text-xs text-amber-900">{state.message}</p>
+          <div className="mt-1 flex items-center gap-1.5">
+            <code className="max-w-full overflow-x-auto rounded bg-white px-1.5 py-0.5 text-[10px]">
+              {state.resetLink}
+            </code>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(state.resetLink!)}
+              className="shrink-0 rounded border border-grey-300 bg-white px-2 py-0.5 text-xs hover:border-navy-900"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

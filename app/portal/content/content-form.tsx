@@ -10,7 +10,7 @@ import {
 
 export interface ContentPostInput {
   id?: string;
-  type: "news" | "page";
+  type: "news" | "page" | "press_release" | "case_summary";
   title: string;
   slug: string;
   excerpt: string;

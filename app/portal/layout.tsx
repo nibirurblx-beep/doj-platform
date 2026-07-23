@@ -5,6 +5,8 @@ import { PERMISSIONS } from "@/lib/permissions/keys";
 import Link from "next/link";
 import { PortalNav } from "@/components/portal/nav";
 import { MobilePortalNav } from "@/components/portal/mobile-nav";
+import { NotificationsBell } from "@/components/portal/notifications-bell";
+import { getPortalTasks } from "@/lib/portal/tasks";
 import { UserMenu } from "@/components/portal/user-menu";
 import { Seal } from "@/components/brand/seal";
 
@@ -24,6 +26,7 @@ export default async function PortalLayout({
   }
 
   const myPermissions = await getMyPermissions();
+  const portalTasks = await getPortalTasks(session.user.id);
   const has = (key: string) =>
     myPermissions.some((p) => p.permission_key === key);
 
@@ -74,7 +77,10 @@ export default async function PortalLayout({
               <MobilePortalNav items={navItems} />
               <h1 className="font-display text-lg md:text-xl">Portal</h1>
             </div>
-            <UserMenu user={session.user} />
+            <div className="flex items-center gap-2">
+              <NotificationsBell tasks={portalTasks} />
+              <UserMenu user={session.user} />
+            </div>
           </div>
         </header>
 

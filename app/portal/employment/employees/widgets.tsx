@@ -9,6 +9,7 @@ import {
   setEmployeeStatusAction,
   requestSignatureAction,
   cancelSignatureAction,
+  toggleDirectoryVisibilityAction,
 } from "./actions";
 import { CHECKLIST_ITEMS, type ChecklistState } from "@/lib/employees/checklist";
 
@@ -524,6 +525,40 @@ export function CancelSignatureButton({ requestId }: { requestId: string }) {
         {isPending ? "…" : "Cancel"}
       </button>
       {state?.error && <span className="ml-1 text-xs text-red-800">{state.error}</span>}
+    </form>
+  );
+}
+
+export function DirectoryToggle({
+  employeeId,
+  visible,
+}: {
+  employeeId: string;
+  visible: boolean;
+}) {
+  const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => toggleDirectoryVisibilityAction(formData),
+    null,
+  );
+  return (
+    <form action={formAction} className="inline-flex items-center gap-2">
+      <input type="hidden" name="employeeId" value={employeeId} />
+      <input type="hidden" name="visible" value={visible ? "false" : "true"} />
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded border border-grey-300 px-3 py-1.5 text-sm hover:border-navy-900 disabled:opacity-50"
+      >
+        {isPending
+          ? "…"
+          : visible
+            ? "Hide from public directory"
+            : "Show in public directory"}
+      </button>
+      {state?.error && <span className="text-xs text-red-800">{state.error}</span>}
+      {state?.success && (
+        <span className="text-xs text-green-700">{state.message}</span>
+      )}
     </form>
   );
 }

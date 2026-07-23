@@ -9,6 +9,7 @@ import {
   EditUserPanel,
   MembershipDivisionSelect,
   DeleteUserButton,
+  ResetLinkButton,
 } from "./widgets";
 
 export const metadata = { title: "Users" };
@@ -138,6 +139,7 @@ export default async function UsersAdminPage() {
                     robloxUsername={user.roblox}
                     email={user.email}
                   />
+                  <ResetLinkButton userId={user.id} />
                   <SuspendControls userId={user.id} isSuspended={user.suspended} />
                   <DeleteUserButton userId={user.id} email={user.email} />
                 </div>

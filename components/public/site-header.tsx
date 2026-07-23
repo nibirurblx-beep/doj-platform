@@ -36,9 +36,9 @@ async function getCmsItems(): Promise<NavItem[]> {
 export async function SiteHeader() {
   const cmsItems = await getCmsItems();
   const items: NavItem[] = [
-    { href: "/news", label: "News" },
+    { href: "/reading-room", label: "Reading Room" },
+    { href: "/directory", label: "Directory" },
     { href: "/careers", label: "Careers" },
-    { href: "/foia", label: "FOI" },
     ...cmsItems,
   ];
 

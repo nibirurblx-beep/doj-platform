@@ -78,7 +78,7 @@ async function uploadCover(
 }
 
 const contentSchema = z.object({
-  type: z.enum(["news", "page"]),
+  type: z.enum(["news", "page", "press_release", "case_summary"]),
   title: z.string().min(3, "Title must be at least 3 characters").max(200),
   slug: z.string().max(80).optional().or(z.literal("")),
   excerpt: z.string().max(500).optional().or(z.literal("")),

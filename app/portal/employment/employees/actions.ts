@@ -525,3 +525,40 @@ export async function cancelSignatureAction(formData: FormData) {
   revalidatePath(`/portal/employment/employees/${request.employee_id}`);
   return { success: true, message: "Request cancelled" };
 }
+
+/** Toggle whether this employee appears in the public staff directory. */
+export async function toggleDirectoryVisibilityAction(formData: FormData) {
+  const user = await getActor();
+  if (!user) return { error: "Not signed in" };
+  const employeeId = formData.get("employeeId");
+  const visible = formData.get("visible") === "true";
+  if (typeof employeeId !== "string") return { error: "Invalid input" };
+
+  const service = createSupabaseServiceClient();
+  const { data: employee } = await service
+    .from("employees")
+    .select("id, organisation_id")
+    .eq("id", employeeId)
+    .single();
+  if (!employee) return { error: "Employee not found" };
+  if (!(await userHasPermission(PERMISSIONS.EMPLOYEES_UPDATE, employee.organisation_id))) {
+    return { error: "You cannot update employees in that organisation" };
+  }
+
+  const { error } = await service
+    .from("employees")
+    .update({ directory_visible: visible })
+    .eq("id", employeeId);
+  if (error) return { error: error.message };
+
+  await logAudit(service, {
+    action: visible ? "employee.directory_shown" : "employee.directory_hidden",
+    entityType: "employees",
+    entityId: employeeId,
+    orgId: employee.organisation_id,
+    actor: user.id,
+  });
+  revalidatePath(`/portal/employment/employees/${employeeId}`);
+  revalidatePath("/directory");
+  return { success: true, message: visible ? "Shown in public directory" : "Hidden from public directory" };
+}

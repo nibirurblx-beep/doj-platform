@@ -3,7 +3,7 @@ import { hasPermissionAnywhere, getPermittedOrgIds } from "@/lib/permissions/ser
 import { PERMISSIONS } from "@/lib/permissions/keys";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { StatusControls, NoteForm } from "../review-controls";
+import { StatusControls, NoteForm, ScheduleInterviewControl } from "../review-controls";
 import { ConvertForm } from "../convert-form";
 
 interface Question {
@@ -50,7 +50,7 @@ export default async function ApplicationReviewPage({
   const { data: app } = await service
     .from("applications")
     .select(
-      "id, app_number, status, submitted_at, answers, user_id, vacancies(title, questions, organisation_id)",
+      "id, app_number, status, submitted_at, answers, user_id, vacancies(title, questions, organisation_id), interview_at, interview_note",
     )
     .eq("id", id)
     .single();
@@ -211,7 +211,26 @@ export default async function ApplicationReviewPage({
             <section className="rounded border border-grey-200 bg-white p-5">
               <h4 className="font-display text-lg">Decision</h4>
               <div className="mt-3">
-                <StatusControls applicationId={app.id} status={app.status} />
+                <div className="space-y-3">
+                  <StatusControls applicationId={app.id} status={app.status} />
+                  <ScheduleInterviewControl
+                    applicationId={app.id}
+                    status={app.status}
+                  />
+                  {app.status === "interview" && app.interview_at && (
+                    <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      Interview:{" "}
+                      {new Date(app.interview_at).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {app.interview_note ? ` — ${app.interview_note}` : ""}
+                    </p>
+                  )}
+                </div>
               </div>
             </section>
           )}

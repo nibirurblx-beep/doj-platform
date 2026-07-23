@@ -188,6 +188,14 @@ export default async function FoiaPage() {
                     <p className="mt-1 whitespace-pre-wrap">{req.appeal_note}</p>
                   </div>
                 )}
+                {["completed", "denied", "appeal_completed", "appeal_denied"].includes(req.status) && (
+                  <a
+                    href={`/foia/letter/${req.id}`}
+                    className="mt-3 inline-block rounded border border-grey-300 px-3 py-1.5 text-sm hover:border-navy-900"
+                  >
+                    Download decision letter (PDF)
+                  </a>
+                )}
                 {req.status === "denied" && <AppealForm requestId={req.id} />}
               </div>
             ))}
