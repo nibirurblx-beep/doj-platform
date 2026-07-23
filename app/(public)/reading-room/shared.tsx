@@ -6,6 +6,7 @@ export const READING_ROOM_SECTIONS = [
   { href: "/reading-room/press-releases", label: "Press Releases" },
   { href: "/reading-room/case-summaries", label: "Case Summaries" },
   { href: "/foia", label: "Freedom of Information" },
+  { href: "/hall-of-attorney-generals", label: "Hall of Attorney Generals" },
 ];
 
 /** DOJ-style left sidebar for the Reading Room section. */

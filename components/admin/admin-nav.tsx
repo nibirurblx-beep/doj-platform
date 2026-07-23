@@ -15,6 +15,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/portal/admin/invitations", label: "Invitations" },
   { href: "/portal/admin/organisation", label: "Organisation" },
   { href: "/portal/admin/audit", label: "Audit log" },
+  { href: "/portal/admin/hall", label: "Hall of AGs" },
 ];
 
 export function AdminNav() {

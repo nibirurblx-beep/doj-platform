@@ -46,7 +46,7 @@ export async function appendSignatureCertificate(
     color: NAVY,
   });
   y -= 18;
-  page.drawText("Department of Justice Roleplay Community", {
+  page.drawText("Department of Justice - OSFUSA", {
     x: margin,
     y,
     size: 10,
@@ -221,7 +221,7 @@ export async function appendCompletionCertificate(
     x: margin, y, size: 22, font: serifBold, color: NAVY,
   });
   y -= 18;
-  page.drawText("Department of Justice Roleplay Community", {
+  page.drawText("Department of Justice - OSFUSA", {
     x: margin, y, size: 10, font: serif, color: GREY,
   });
   y -= 30;
