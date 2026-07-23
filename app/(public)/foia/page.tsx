@@ -198,20 +198,21 @@ export default async function FoiaPage() {
       {/* Coverage */}
       <section className="mt-8 grid gap-6 md:grid-cols-2">
         <div className="rounded border border-grey-200 bg-white p-6">
-          <h2 className="font-display text-lg">Covered by the act</h2>
+          <h2 className="font-display text-lg">Handled through this site</h2>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-grey-800">
             {FOI_COVERED.map((body) => (
               <li key={body}>{body}</li>
             ))}
           </ul>
           <p className="mt-3 text-xs text-grey-500">
-            Requests here are routed to the departments hosted on this
-            platform. Subsidiary agencies are consolidated into their parent
-            department&rsquo;s processing.
+            Subsidiary agency requests are consolidated into the Department
+            of Justice&rsquo;s processing under section 5(c)(1). Requests for
+            other government departments covered by the act must be sent to
+            those departments directly.
           </p>
         </div>
         <div className="rounded border border-grey-200 bg-white p-6">
-          <h2 className="font-display text-lg">Exempt from the act</h2>
+          <h2 className="font-display text-lg">Not subject to requests</h2>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-grey-800">
             {FOI_EXEMPT_BODIES.map((body) => (
               <li key={body}>{body}</li>

@@ -25,22 +25,15 @@ export const FOI_STATUS_LABELS: Record<string, string> = {
 
 export const FOI_OPEN_STATUSES = ["submitted", "acknowledged", "late_notice", "appealed"];
 
-/** Departments and agencies covered by the act (public information page). */
+/** What this site accepts requests for: the Department of Justice and its
+ *  subsidiaries, whose FOIR processing is consolidated into the DOJ under
+ *  section 5(c)(1) of the act. */
 export const FOI_COVERED = [
-  "The White House",
-  "The Department of Justice (including the Metropolitan Police Department and the Federal Bureau of Investigation)",
-  "The Department of Homeland Security (including the United States Secret Service, Customs and Border Protection, and the Law Enforcement Helicopter Task Force)",
-  "The Department of State (including the Diplomatic Security Service)",
-  "The Department of War (including the United States Marine Corps)",
-  "The Office of the Director of National Intelligence",
-  "Commission on Inspectors General Integrity and Efficiency",
-  "The United States Marshal Service",
-  "C-SPAN",
+  "The Department of Justice",
+  "The Metropolitan Police Department",
+  "The Federal Bureau of Investigation",
 ];
 
 export const FOI_EXEMPT_BODIES = [
-  "The Central Intelligence Agency",
   "The Federal Bureau of Investigation's National Security Branch",
-  "The National Security Agency",
-  "The Marines Special Operations Command",
 ];
