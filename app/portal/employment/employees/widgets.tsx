@@ -10,6 +10,8 @@ import {
   requestSignatureAction,
   cancelSignatureAction,
   toggleDirectoryVisibilityAction,
+  uploadEmployeePhotoAction,
+  removeEmployeePhotoAction,
 } from "./actions";
 import { CHECKLIST_ITEMS, type ChecklistState } from "@/lib/employees/checklist";
 
@@ -560,5 +562,78 @@ export function DirectoryToggle({
         <span className="text-xs text-green-700">{state.message}</span>
       )}
     </form>
+  );
+}
+
+export function EmployeePhotoControl({
+  employeeId,
+  photoUrl,
+  displayName,
+}: {
+  employeeId: string;
+  photoUrl: string | null;
+  displayName: string;
+}) {
+  const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => uploadEmployeePhotoAction(formData),
+    null,
+  );
+  const [removeState, removeAction, isRemoving] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => removeEmployeePhotoAction(formData),
+    null,
+  );
+
+  return (
+    <div className="flex items-center gap-4">
+      {photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photoUrl}
+          alt={displayName}
+          className="h-16 w-16 rounded-full border-2 border-gold-500 object-cover"
+        />
+      ) : (
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-grey-300 bg-grey-100 font-display text-xl text-grey-500">
+          {displayName.slice(0, 1).toUpperCase()}
+        </div>
+      )}
+      <div>
+        <form action={formAction} className="flex flex-wrap items-center gap-2">
+          <input type="hidden" name="employeeId" value={employeeId} />
+          <input
+            type="file"
+            name="photo"
+            accept="image/jpeg,image/png,image/webp"
+            className="text-xs"
+          />
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded border border-grey-300 px-2.5 py-1 text-xs hover:border-navy-900 disabled:opacity-50"
+          >
+            {isPending ? "Uploading…" : photoUrl ? "Replace photo" : "Upload photo"}
+          </button>
+          {photoUrl && (
+            <button
+              type="submit"
+              formAction={removeAction}
+              disabled={isRemoving}
+              className="rounded border border-grey-300 px-2.5 py-1 text-xs hover:border-red-800 hover:text-red-800 disabled:opacity-50"
+            >
+              {isRemoving ? "…" : "Remove"}
+            </button>
+          )}
+        </form>
+        <p className="mt-1 text-xs text-grey-500">
+          JPG/PNG/WebP, 2 MB max. Shown on the public directory when this
+          employee is visible there.
+        </p>
+        {(state?.error || removeState?.error) && (
+          <p className="mt-1 text-xs text-red-800">
+            {state?.error || removeState?.error}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

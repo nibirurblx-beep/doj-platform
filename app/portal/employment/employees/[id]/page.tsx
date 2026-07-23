@@ -17,6 +17,7 @@ import {
   EmployeeStatusControls,
   CancelSignatureButton,
   DirectoryToggle,
+  EmployeePhotoControl,
 } from "../widgets";
 
 export const metadata = { title: "Employee" };
@@ -47,7 +48,7 @@ export default async function EmployeeDetailPage({
   const { data: emp } = await service
     .from("employees")
     .select(
-      "id, employee_number, user_id, rank, status, started_at, ended_at, end_reason, checklist, directory_visible, organisation_id, organisations(name, slug), offices(name)",
+      "id, employee_number, user_id, rank, status, started_at, ended_at, end_reason, checklist, directory_visible, photo_url, organisation_id, organisations(name, slug), offices(name)",
     )
     .eq("id", id)
     .single();
@@ -141,6 +142,16 @@ export default async function EmployeeDetailPage({
           </span>
         )}
       </div>
+
+      {canEdit && (
+        <div className="rounded border border-grey-200 bg-white p-4">
+          <EmployeePhotoControl
+            employeeId={emp.id}
+            photoUrl={emp.photo_url}
+            displayName={profile?.display_name || emp.employee_number}
+          />
+        </div>
+      )}
 
       {emp.status !== "active" && (
         <div className="rounded border border-grey-200 bg-grey-050 px-4 py-3 text-sm text-grey-700">

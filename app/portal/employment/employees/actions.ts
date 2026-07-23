@@ -562,3 +562,107 @@ export async function toggleDirectoryVisibilityAction(formData: FormData) {
   revalidatePath("/directory");
   return { success: true, message: visible ? "Shown in public directory" : "Hidden from public directory" };
 }
+
+// ----------------------------------------------------------------------------
+// Directory photos (stored publicly - only for directory-visible staff)
+// ----------------------------------------------------------------------------
+const PHOTO_BUCKET = "public-media";
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+const PHOTO_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+export async function uploadEmployeePhotoAction(formData: FormData) {
+  const user = await getActor();
+  if (!user) return { error: "Not signed in" };
+
+  const employeeId = formData.get("employeeId");
+  const file = formData.get("photo");
+  if (typeof employeeId !== "string" || !(file instanceof File) || file.size === 0) {
+    return { error: "Choose an image first" };
+  }
+  const ext = PHOTO_TYPES[file.type];
+  if (!ext) return { error: "Use a JPG, PNG or WebP image" };
+  if (file.size > PHOTO_MAX_BYTES) return { error: "Image too large (2 MB max)" };
+
+  const service = createSupabaseServiceClient();
+  const { data: employee } = await service
+    .from("employees")
+    .select("id, organisation_id")
+    .eq("id", employeeId)
+    .single();
+  if (!employee) return { error: "Employee not found" };
+  if (!(await userHasPermission(PERMISSIONS.EMPLOYEES_UPDATE, employee.organisation_id))) {
+    return { error: "You cannot update employees in that organisation" };
+  }
+
+  const path = `directory/${employeeId}.${ext}`;
+  const { error: uploadError } = await service.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, await file.arrayBuffer(), {
+      contentType: file.type,
+      upsert: true,
+    });
+  if (uploadError) return { error: uploadError.message };
+
+  const { data: pub } = service.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+  // Cache-bust so a replaced photo shows immediately
+  const url = `${pub.publicUrl}?v=${Date.now()}`;
+
+  const { error } = await service
+    .from("employees")
+    .update({ photo_url: url })
+    .eq("id", employeeId);
+  if (error) return { error: error.message };
+
+  await logAudit(service, {
+    action: "employee.photo_updated",
+    entityType: "employees",
+    entityId: employeeId,
+    orgId: employee.organisation_id,
+    actor: user.id,
+  });
+  revalidatePath(`/portal/employment/employees/${employeeId}`);
+  revalidatePath("/directory");
+  return { success: true, message: "Photo updated" };
+}
+
+export async function removeEmployeePhotoAction(formData: FormData) {
+  const user = await getActor();
+  if (!user) return { error: "Not signed in" };
+  const employeeId = formData.get("employeeId");
+  if (typeof employeeId !== "string") return { error: "Invalid input" };
+
+  const service = createSupabaseServiceClient();
+  const { data: employee } = await service
+    .from("employees")
+    .select("id, organisation_id")
+    .eq("id", employeeId)
+    .single();
+  if (!employee) return { error: "Employee not found" };
+  if (!(await userHasPermission(PERMISSIONS.EMPLOYEES_UPDATE, employee.organisation_id))) {
+    return { error: "You cannot update employees in that organisation" };
+  }
+
+  for (const ext of ["jpg", "png", "webp"]) {
+    await service.storage.from(PHOTO_BUCKET).remove([`directory/${employeeId}.${ext}`]);
+  }
+  const { error } = await service
+    .from("employees")
+    .update({ photo_url: null })
+    .eq("id", employeeId);
+  if (error) return { error: error.message };
+
+  await logAudit(service, {
+    action: "employee.photo_removed",
+    entityType: "employees",
+    entityId: employeeId,
+    orgId: employee.organisation_id,
+    actor: user.id,
+  });
+  revalidatePath(`/portal/employment/employees/${employeeId}`);
+  revalidatePath("/directory");
+  return { success: true, message: "Photo removed" };
+}
