@@ -13,8 +13,8 @@ export interface PlacedBox {
 }
 
 const PDFJS_VERSION = "6.1.200";
-const BOX_W = 0.28; // normalised default box size
-const BOX_H = 0.05;
+const MIN_W = 0.04; // minimum drawn box size (normalised)
+const MIN_H = 0.015;
 
 /**
  * Renders the PDF with pdf.js and lets the requester click to place
@@ -83,24 +83,61 @@ export function SignaturePlacement({
     };
   }, [documentUrl]);
 
-  function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+  // Drag-to-draw, like Acrobat: press down where the box starts, drag to
+  // size it, release to place. Works with mouse and touch.
+  const draft = useRef<{ page: number; startX: number; startY: number } | null>(null);
+  const [preview, setPreview] = useState<PlacedBox | null>(null);
+
+  function pagePos(e: React.PointerEvent) {
     const target = (e.target as HTMLElement).closest("[data-page]");
-    if (!target || !(target instanceof HTMLElement)) return;
-    const pageIndex = Number(target.dataset.page);
+    if (!target || !(target instanceof HTMLElement)) return null;
     const rect = target.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - BOX_W / 2;
-    const y = (e.clientY - rect.top) / rect.height - BOX_H / 2;
-    setBoxes((prev) => [
-      ...prev,
-      {
-        page: pageIndex,
-        x: Math.min(Math.max(x, 0), 1 - BOX_W),
-        y: Math.min(Math.max(y, 0), 1 - BOX_H),
-        w: BOX_W,
-        h: BOX_H,
-        signer,
-      },
-    ]);
+    return {
+      page: Number(target.dataset.page),
+      x: Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1),
+      y: Math.min(Math.max((e.clientY - rect.top) / rect.height, 0), 1),
+    };
+  }
+
+  function draftRect(current: { x: number; y: number }) {
+    const d = draft.current!;
+    return {
+      page: d.page,
+      x: Math.min(d.startX, current.x),
+      y: Math.min(d.startY, current.y),
+      w: Math.abs(current.x - d.startX),
+      h: Math.abs(current.y - d.startY),
+      signer,
+    };
+  }
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if ((e.target as HTMLElement).closest("[data-sig-box]")) return; // removing
+    const pos = pagePos(e);
+    if (!pos) return;
+    e.preventDefault();
+    draft.current = { page: pos.page, startX: pos.x, startY: pos.y };
+    setPreview(null);
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!draft.current) return;
+    const pos = pagePos(e);
+    if (!pos || pos.page !== draft.current.page) return;
+    e.preventDefault();
+    setPreview(draftRect(pos));
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (!draft.current) return;
+    const pos = pagePos(e);
+    const d = draft.current;
+    draft.current = null;
+    setPreview(null);
+    if (!pos || pos.page !== d.page) return;
+    const rect = draftRect(pos);
+    if (rect.w < MIN_W || rect.h < MIN_H) return; // too small: treat as a stray tap
+    setBoxes((prev) => [...prev, rect]);
   }
 
   function removeBox(index: number) {
@@ -144,7 +181,7 @@ export function SignaturePlacement({
             </button>
           </div>
           <span className="text-xs text-grey-500">
-            Click the document where each signature belongs. Click a box to remove it.
+            Press and drag on the document to draw each signature box at the size you need. Click a box to remove it.
           </span>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -172,8 +209,18 @@ export function SignaturePlacement({
       {loading && <p className="text-sm text-grey-600">Rendering document…</p>}
 
       {/* Pages + overlay boxes */}
-      <div ref={containerRef} onClick={handleClick} className="cursor-crosshair" />
-      <BoxOverlays containerRef={containerRef} boxes={boxes} onRemove={removeBox} />
+      <div
+        ref={containerRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        className="cursor-crosshair touch-none select-none"
+      />
+      <BoxOverlays
+        containerRef={containerRef}
+        boxes={preview ? [...boxes, preview] : boxes}
+        onRemove={removeBox}
+      />
       {pageCount > 0 && (
         <p className="text-xs text-grey-500">{pageCount} page(s)</p>
       )}

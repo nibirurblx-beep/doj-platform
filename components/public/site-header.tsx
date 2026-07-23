@@ -38,6 +38,7 @@ export async function SiteHeader() {
   const items: NavItem[] = [
     { href: "/news", label: "News" },
     { href: "/careers", label: "Careers" },
+    { href: "/foia", label: "FOI" },
     ...cmsItems,
   ];
 
@@ -51,7 +52,7 @@ export async function SiteHeader() {
               Department of Justice
             </span>
             <span className="block text-[10px] uppercase tracking-[0.18em] text-navy-100 sm:text-xs">
-              OurStandingFounder's United States of America
+              Roleplay Community
             </span>
           </span>
         </Link>

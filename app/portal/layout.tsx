@@ -42,6 +42,9 @@ export default async function PortalLayout({
       ? { href: "/portal/employment", label: "Employment register" }
       : null,
     { href: "/portal/documents", label: "Documents" },
+    has(PERMISSIONS.EMPLOYEES_ALL_VIEW) || has(PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW)
+      ? { href: "/portal/foi", label: "FOI requests" }
+      : null,
     has(PERMISSIONS.USERS_INVITE) || has(PERMISSIONS.USERS_MANAGE)
       ? { href: "/portal/admin", label: "Administration" }
       : null,
