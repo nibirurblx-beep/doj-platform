@@ -5,7 +5,8 @@ import { HeaderNav, type NavItem } from "./header-nav";
 
 const DEPARTMENT_LINKS: NavItem[] = [
   { href: "/departments/doj", label: "Department of Justice" },
-  { href: "/departments/mpd", label: "Metropolitan Police Department" },
+  { href: "https://osfusametropolitanpolicedept.netlify.app/", label: "Metropolitan Police Department" },
+  // { href: "/departments/mpd", label: "Metropolitan Police Department" },
   { href: "/departments/fbi", label: "Federal Bureau of Investigation" },
 ];
 
