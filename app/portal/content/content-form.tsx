@@ -8,6 +8,12 @@ import {
   changeContentStatusAction,
 } from "@/app/portal/content/actions";
 
+const LIVE_BASE: Record<string, string> = {
+  news: "/news",
+  page: "/p",
+  press_release: "/reading-room/press-releases",
+  case_summary: "/reading-room/case-summaries",
+};
 export interface ContentPostInput {
   id?: string;
   type: "news" | "page" | "press_release" | "case_summary";
@@ -45,7 +51,7 @@ export function ContentForm({
   );
 
   const publicPath =
-    post.type === "news" ? `/news/${post.slug}` : `/p/${post.slug}`;
+    `${LIVE_BASE[post.type] ?? "/p"}/${post.slug}`;
 
   return (
     <div className="space-y-6">

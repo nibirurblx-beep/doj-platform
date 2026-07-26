@@ -56,12 +56,17 @@ export default async function PressReleasePage({
 
   // Author card: name + their other published articles
   const service = createSupabaseServiceClient();
-  const [{ data: author }, { data: otherPosts }] = await Promise.all([
+  const [{ data: author }, { data: authorEmployees }, { data: otherPosts }] = await Promise.all([
     service
       .from("profiles")
       .select("display_name")
       .eq("id", post.author_id)
       .single(),
+    service
+      .from("employees")
+      .select("photo_url, status")
+      .eq("user_id", post.author_id)
+      .not("photo_url", "is", null),
     service
       .from("content_posts")
       .select("title, slug, published_at")
@@ -73,6 +78,10 @@ export default async function PressReleasePage({
       .limit(5),
   ]);
   const authorName = author?.display_name || "Department of Justice";
+  const authorPhoto =
+    (authorEmployees ?? []).find((e) => e.status === "active")?.photo_url ??
+    (authorEmployees ?? [])[0]?.photo_url ??
+    null;
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-16">
@@ -81,10 +90,22 @@ export default async function PressReleasePage({
           <Link href={LIST_HREF} className="text-sm text-navy-900 underline">
             ← {LIST_LABEL}
           </Link>
-          <p className="mt-6 text-xs uppercase tracking-wide text-grey-500">
-            {formatDate(post.published_at)}
-          </p>
-          <h1 className="mt-2 font-display text-3xl leading-tight">
+          {/* Official masthead */}
+          <div className="mt-6 border-y-2 border-navy-900 py-4 text-center">
+            <p className="font-display text-sm tracking-[0.2em] text-navy-900">
+              DEPARTMENT OF JUSTICE
+            </p>
+            <p className="mt-1 text-xs uppercase tracking-[0.15em] text-grey-500">
+              Office of Public Affairs
+            </p>
+            <p className="mt-3 text-xs font-bold uppercase tracking-[0.2em] text-gold-700">
+              For Immediate Release
+            </p>
+            <p className="mt-0.5 text-xs text-grey-500">
+              {formatDate(post.published_at)}
+            </p>
+          </div>
+          <h1 className="mt-6 text-center font-display text-3xl leading-tight">
             {post.title}
           </h1>
           {post.cover_image_url && (
@@ -106,9 +127,18 @@ export default async function PressReleasePage({
         <aside className="hidden lg:block">
           <div className="sticky top-6 rounded border border-grey-200 bg-white p-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy-900 font-display text-lg text-white">
-                {authorName.slice(0, 1).toUpperCase()}
-              </div>
+              {authorPhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={authorPhoto}
+                  alt={authorName}
+                  className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-gold-500"
+                />
+              ) : (
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy-900 font-display text-lg text-white">
+                  {authorName.slice(0, 1).toUpperCase()}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-wide text-grey-500">
                   Published by

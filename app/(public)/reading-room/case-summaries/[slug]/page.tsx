@@ -56,12 +56,17 @@ export default async function CaseSummaryPage({
 
   // Author card: name + their other published articles
   const service = createSupabaseServiceClient();
-  const [{ data: author }, { data: otherPosts }] = await Promise.all([
+  const [{ data: author }, { data: authorEmployees }, { data: otherPosts }] = await Promise.all([
     service
       .from("profiles")
       .select("display_name")
       .eq("id", post.author_id)
       .single(),
+    service
+      .from("employees")
+      .select("photo_url, status")
+      .eq("user_id", post.author_id)
+      .not("photo_url", "is", null),
     service
       .from("content_posts")
       .select("title, slug, published_at")
@@ -73,6 +78,10 @@ export default async function CaseSummaryPage({
       .limit(5),
   ]);
   const authorName = author?.display_name || "Department of Justice";
+  const authorPhoto =
+    (authorEmployees ?? []).find((e) => e.status === "active")?.photo_url ??
+    (authorEmployees ?? [])[0]?.photo_url ??
+    null;
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-16">
@@ -81,12 +90,23 @@ export default async function CaseSummaryPage({
           <Link href={LIST_HREF} className="text-sm text-navy-900 underline">
             ← {LIST_LABEL}
           </Link>
-          <p className="mt-6 text-xs uppercase tracking-wide text-grey-500">
-            {formatDate(post.published_at)}
-          </p>
-          <h1 className="mt-2 font-display text-3xl leading-tight">
-            {post.title}
-          </h1>
+          {/* Docket-style header */}
+          <div className="mt-6 overflow-hidden rounded border border-grey-200">
+            <div className="border-b-4 border-gold-500 bg-navy-900 px-6 py-5">
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold-200">
+                Case Summary · Closed
+              </p>
+              <h1 className="mt-2 font-display text-2xl leading-tight text-white">
+                {post.title}
+              </h1>
+            </div>
+            <div className="bg-grey-050 px-6 py-2.5">
+              <p className="text-xs text-grey-600">
+                Summary published {formatDate(post.published_at)} by the
+                Department of Justice
+              </p>
+            </div>
+          </div>
           {post.cover_image_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -106,9 +126,18 @@ export default async function CaseSummaryPage({
         <aside className="hidden lg:block">
           <div className="sticky top-6 rounded border border-grey-200 bg-white p-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy-900 font-display text-lg text-white">
-                {authorName.slice(0, 1).toUpperCase()}
-              </div>
+              {authorPhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={authorPhoto}
+                  alt={authorName}
+                  className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-gold-500"
+                />
+              ) : (
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy-900 font-display text-lg text-white">
+                  {authorName.slice(0, 1).toUpperCase()}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-wide text-grey-500">
                   Published by

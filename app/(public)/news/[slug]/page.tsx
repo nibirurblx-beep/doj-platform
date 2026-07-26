@@ -56,12 +56,17 @@ export default async function NewsArticlePage({
 
   // Author card: name + their other published articles
   const service = createSupabaseServiceClient();
-  const [{ data: author }, { data: otherPosts }] = await Promise.all([
+  const [{ data: author }, { data: authorEmployees }, { data: otherPosts }] = await Promise.all([
     service
       .from("profiles")
       .select("display_name")
       .eq("id", post.author_id)
       .single(),
+    service
+      .from("employees")
+      .select("photo_url, status")
+      .eq("user_id", post.author_id)
+      .not("photo_url", "is", null),
     service
       .from("content_posts")
       .select("title, slug, published_at")
@@ -73,6 +78,10 @@ export default async function NewsArticlePage({
       .limit(5),
   ]);
   const authorName = author?.display_name || "Department of Justice";
+  const authorPhoto =
+    (authorEmployees ?? []).find((e) => e.status === "active")?.photo_url ??
+    (authorEmployees ?? [])[0]?.photo_url ??
+    null;
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-16">
@@ -106,9 +115,18 @@ export default async function NewsArticlePage({
         <aside className="hidden lg:block">
           <div className="sticky top-6 rounded border border-grey-200 bg-white p-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy-900 font-display text-lg text-white">
-                {authorName.slice(0, 1).toUpperCase()}
-              </div>
+              {authorPhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={authorPhoto}
+                  alt={authorName}
+                  className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-gold-500"
+                />
+              ) : (
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy-900 font-display text-lg text-white">
+                  {authorName.slice(0, 1).toUpperCase()}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-wide text-grey-500">
                   Published by
