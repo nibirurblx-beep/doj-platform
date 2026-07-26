@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { uploadPublicResourceAction, deletePublicResourceAction } from "./actions";
+import { uploadPublicResourceAction, deletePublicResourceAction, addResourceLinkAction } from "./actions";
 
 type ActionResult = { error?: string; success?: boolean; message?: string } | null;
 
@@ -57,6 +57,44 @@ export function ResourceDeleteButton({ name }: { name: string }) {
         {isPending ? "…" : "Remove"}
       </button>
       {state?.error && <span className="ml-2 text-xs text-red-800">{state.error}</span>}
+    </form>
+  );
+}
+
+export function ResourceLinkForm() {
+  const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => addResourceLinkAction(formData),
+    null,
+  );
+  return (
+    <form action={formAction} className="flex flex-wrap items-center gap-2">
+      <input
+        type="text"
+        name="name"
+        required
+        placeholder="Link name (e.g. Motion template - Google Docs)"
+        className="w-72 rounded border border-grey-300 px-3 py-1.5 text-sm"
+        key={state?.success ? `n${Date.now()}` : "name"}
+      />
+      <input
+        type="url"
+        name="url"
+        required
+        placeholder="https://…"
+        className="w-72 rounded border border-grey-300 px-3 py-1.5 text-sm"
+        key={state?.success ? `u${Date.now()}` : "url"}
+      />
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded border border-grey-300 bg-white px-4 py-2 text-sm hover:border-navy-900 disabled:opacity-50"
+      >
+        {isPending ? "Publishing…" : "Publish link"}
+      </button>
+      {state?.error && <span className="text-sm text-red-800">{state.error}</span>}
+      {state?.success && (
+        <span className="text-sm text-green-700">{state.message}</span>
+      )}
     </form>
   );
 }
