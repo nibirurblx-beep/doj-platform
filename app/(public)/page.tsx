@@ -72,11 +72,11 @@ export default async function HomePage() {
               Department of Justice
             </p>
             <h1 className="max-w-3xl font-display text-4xl leading-tight md:text-5xl">
-              Upholding the rule of law across the nation
+              Upholding the rule of law across the community
             </h1>
             <p className="mt-6 max-w-measure text-lg text-navy-100">
               News, legal resources and career opportunities from the
-              Department of Justice.
+              Department of Justice roleplay community.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -118,7 +118,7 @@ export default async function HomePage() {
               <Link
                 key={post.slug}
                 href={`/news/${post.slug}`}
-                className="group relative flex min-h-[300px] flex-col justify-end overflow-hidden rounded bg-navy-950 bg-cover bg-center p-5 text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+                className="group relative flex aspect-video flex-col justify-end overflow-hidden rounded bg-navy-950 bg-cover bg-center p-5 text-white transition hover:-translate-y-0.5 hover:shadow-lg"
                 style={
                   post.cover_image_url
                     ? { backgroundImage: `url(${post.cover_image_url})` }
