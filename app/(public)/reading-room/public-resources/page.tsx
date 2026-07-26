@@ -24,26 +24,7 @@ export default async function PublicResourcesPage() {
     .from(BUCKET)
     .list(RESOURCES_PREFIX, { limit: 200, sortBy: { column: "name", order: "asc" } });
 
-  const all = (entries ?? []).filter((e) => e.id !== null);
-  const files = all.filter((e) => !e.name.endsWith(".link"));
-
-  // Resolve link entries to their target URLs
-  const linkEntries = all.filter((e) => e.name.endsWith(".link"));
-  const links: Array<{ name: string; url: string }> = [];
-  for (const entry of linkEntries) {
-    const { data: blob } = await service.storage
-      .from(BUCKET)
-      .download(`${RESOURCES_PREFIX}/${entry.name}`);
-    if (!blob) continue;
-    try {
-      const parsed = JSON.parse(await blob.text()) as { url?: string };
-      if (parsed.url) {
-        links.push({ name: entry.name.replace(/\.link$/, ""), url: parsed.url });
-      }
-    } catch {
-      // malformed link file - skip
-    }
-  }
+  const files = (entries ?? []).filter((e) => e.id !== null);
 
   return (
     <ReadingRoomShell title="Public Resources" active="/reading-room/public-resources">
@@ -53,33 +34,12 @@ export default async function PublicResourcesPage() {
         other filings. Download, complete and file - no account required.
       </p>
 
-      {files.length === 0 && links.length === 0 ? (
+      {files.length === 0 ? (
         <p className="mt-8 rounded border border-grey-200 bg-white p-6 text-sm text-grey-600">
           No resources have been published yet - check back soon.
         </p>
       ) : (
         <ul className="mt-8 divide-y divide-grey-200 rounded border border-grey-200 bg-white">
-          {links.map((link) => (
-            <li
-              key={`link-${link.name}`}
-              className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-medium text-navy-900">
-                  🔗 {link.name}
-                </p>
-                <p className="truncate text-xs text-grey-500">{link.url}</p>
-              </div>
-              <a
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded border border-grey-300 px-3.5 py-1.5 text-sm hover:border-navy-900"
-              >
-                Open
-              </a>
-            </li>
-          ))}
           {files.map((file) => {
             const { data: pub } = service.storage
               .from(BUCKET)

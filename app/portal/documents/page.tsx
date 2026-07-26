@@ -28,7 +28,7 @@ function formatDate(value: string | null | undefined): string {
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ folder?: string }>;
+  searchParams: Promise<{ folder?: string; denied?: string }>;
 }) {
   await requireActiveUser();
   if (!(await hasPermissionAnywhere(PERMISSIONS.DOCUMENTS_INTERNAL_VIEW))) {
@@ -78,7 +78,7 @@ export default async function DocumentsPage({
     });
   }
   if (folder && !access.canAccess(`${folder}/x`)) {
-    redirect("/portal/documents");
+    redirect("/portal/documents?denied=1");
   }
 
   const { data: entries, error } = await service.storage
@@ -146,6 +146,17 @@ export default async function DocumentsPage({
 
   return (
     <div className="space-y-4">
+      {params.denied && (
+        <div className="animate-pulse rounded border-2 border-red-800 bg-red-50 px-4 py-3">
+          <p className="text-sm font-bold uppercase tracking-wide text-red-800">
+            ⛔ Access denied
+          </p>
+          <p className="mt-0.5 text-sm text-red-900">
+            You do not have access to that folder. Ask whoever manages it to
+            add you.
+          </p>
+        </div>
+      )}
       {/* Breadcrumbs */}
       <div className="flex flex-wrap items-center gap-1 text-sm">
         <Link href="/portal/documents" className="text-navy-900 underline">
@@ -318,9 +329,9 @@ export default async function DocumentsPage({
       </div>
 
       <p className="text-xs text-grey-500">
-        Stored privately in Supabase Storage. 20 MB per file. Use the
-        dropdown on any folder to make it private to a department or open it
-        to all staff — privacy covers everything inside the folder.
+        Stored privately in Supabase Storage. 20 MB per file. Folders are
+        open to all staff unless Restricted — use Restrict on a folder and
+        assign people by name; restrictions cover everything inside.
         {canUpload ? "" : " Ask an administrator to add or remove files."}
       </p>
     </div>

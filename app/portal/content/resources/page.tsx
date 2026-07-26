@@ -3,7 +3,7 @@ import { hasPermissionAnywhere } from "@/lib/permissions/server";
 import { PERMISSIONS } from "@/lib/permissions/keys";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ResourceUploadForm, ResourceDeleteButton, ResourceLinkForm } from "./widgets";
+import { ResourceUploadForm, ResourceDeleteButton } from "./widgets";
 
 export const metadata = { title: "Public resources" };
 
@@ -38,11 +38,8 @@ export default async function ResourcesAdminPage() {
         </p>
       </div>
 
-      <div className="space-y-3 rounded border border-grey-200 bg-white p-5">
+      <div className="rounded border border-grey-200 bg-white p-5">
         <ResourceUploadForm />
-        <div className="border-t border-grey-100 pt-3">
-          <ResourceLinkForm />
-        </div>
       </div>
 
       {files.length === 0 ? (
@@ -57,10 +54,7 @@ export default async function ResourcesAdminPage() {
               className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
             >
               <div>
-                <p className="text-sm font-medium">
-                  {file.name.endsWith(".link") ? "🔗" : "📄"}{" "}
-                  {file.name.replace(/\.link$/, "")}
-                </p>
+                <p className="text-sm font-medium">📄 {file.name}</p>
                 <p className="text-xs text-grey-500">
                   {formatSize((file.metadata as { size?: number } | null)?.size ?? 0)}
                 </p>
