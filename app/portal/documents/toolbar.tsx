@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   uploadDocumentAction,
   createFolderAction,
   deleteDocumentAction,
   deleteFolderAction,
-  setFolderVisibilityAction,
+  setFolderRestrictedAction,
+  addFolderMemberAction,
+  removeFolderMemberAction,
   addResourceLinkAction,
 } from "@/app/portal/documents/actions";
 
@@ -137,46 +139,132 @@ export function DeleteFolderButton({ path }: { path: string }) {
   );
 }
 
-export function FolderVisibilityControl({
+export function FolderAccessControl({
   path,
-  currentOrgId,
-  organisations,
+  rule,
+  staff,
 }: {
   path: string;
-  currentOrgId: string | null;
-  organisations: Array<{ id: string; name: string }>;
+  rule: { memberCount: number; members: Array<{ id: string; name: string }> } | null;
+  staff: Array<{ id: string; name: string }>;
 }) {
-  const [state, formAction, isPending] = useActionState<ActionResult, FormData>(
-    async (_prev, formData) => setFolderVisibilityAction(formData),
+  const [open, setOpen] = useState(false);
+  const [restrictState, restrictAction, isRestricting] = useActionState<
+    ActionResult,
+    FormData
+  >(async (_prev, formData) => setFolderRestrictedAction(formData), null);
+  const [addState, addAction, isAdding] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => addFolderMemberAction(formData),
+    null,
+  );
+  const [, removeAction, isRemoving] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => removeFolderMemberAction(formData),
     null,
   );
 
+  const memberIds = new Set((rule?.members ?? []).map((m) => m.id));
+  const addable = staff.filter((person) => !memberIds.has(person.id));
+
   return (
-    <form action={formAction} className="inline-flex items-center gap-1.5">
-      <input type="hidden" name="path" value={path} />
-      <select
-        name="orgId"
-        defaultValue={currentOrgId ?? ""}
-        className="rounded border border-grey-300 px-2 py-1 text-xs"
-        title="Who can see this folder"
-      >
-        <option value="">All staff</option>
-        {organisations.map((org) => (
-          <option key={org.id} value={org.id}>
-            Private to {org.name}
-          </option>
-        ))}
-      </select>
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded border border-grey-300 px-2 py-1 text-xs hover:border-navy-900 disabled:opacity-50"
-      >
-        {isPending ? "…" : "Set"}
-      </button>
-      {state?.success && <span className="text-xs text-green-700">✓</span>}
-      {state?.error && <span className="text-xs text-red-800">{state.error}</span>}
-    </form>
+    <span className="inline-flex flex-col gap-1">
+      <span className="inline-flex items-center gap-1.5">
+        {rule ? (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="rounded border border-grey-300 px-2 py-1 text-xs hover:border-navy-900"
+          >
+            {open ? "Close" : "Manage access"}
+          </button>
+        ) : (
+          <form action={restrictAction} className="inline">
+            <input type="hidden" name="path" value={path} />
+            <input type="hidden" name="restricted" value="true" />
+            <button
+              type="submit"
+              disabled={isRestricting}
+              className="rounded border border-grey-300 px-2 py-1 text-xs hover:border-navy-900 disabled:opacity-50"
+              title="Only people you assign will see this folder"
+            >
+              {isRestricting ? "…" : "Restrict"}
+            </button>
+          </form>
+        )}
+        {restrictState?.error && (
+          <span className="text-xs text-red-800">{restrictState.error}</span>
+        )}
+      </span>
+
+      {rule && open && (
+        <span className="block w-72 rounded border border-grey-200 bg-grey-050 p-2.5">
+          <span className="block text-xs font-medium text-grey-600">
+            Who can access this folder
+          </span>
+          <span className="mt-1.5 block space-y-1">
+            {(rule.members ?? []).map((member) => (
+              <form
+                key={member.id}
+                action={removeAction}
+                className="flex items-center justify-between gap-2 rounded bg-white px-2 py-1"
+              >
+                <input type="hidden" name="path" value={path} />
+                <input type="hidden" name="userId" value={member.id} />
+                <span className="truncate text-xs">{member.name}</span>
+                <button
+                  type="submit"
+                  disabled={isRemoving}
+                  className="text-xs text-grey-400 hover:text-red-800 disabled:opacity-50"
+                  title="Remove access"
+                >
+                  ✕
+                </button>
+              </form>
+            ))}
+          </span>
+          {addable.length > 0 && (
+            <form action={addAction} className="mt-2 flex items-center gap-1.5">
+              <input type="hidden" name="path" value={path} />
+              <select
+                name="userId"
+                required
+                className="min-w-0 flex-1 rounded border border-grey-300 px-2 py-1 text-xs"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Add a person…
+                </option>
+                {addable.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={isAdding}
+                className="rounded bg-navy-900 px-2 py-1 text-xs text-white disabled:opacity-50"
+              >
+                {isAdding ? "…" : "Add"}
+              </button>
+            </form>
+          )}
+          {addState?.error && (
+            <span className="mt-1 block text-xs text-red-800">{addState.error}</span>
+          )}
+          <form action={restrictAction} className="mt-2 block">
+            <input type="hidden" name="path" value={path} />
+            <input type="hidden" name="restricted" value="false" />
+            <button
+              type="submit"
+              disabled={isRestricting}
+              className="text-xs text-grey-500 underline hover:text-navy-900 disabled:opacity-50"
+            >
+              Open to all staff (remove restriction)
+            </button>
+          </form>
+        </span>
+      )}
+    </span>
   );
 }
 

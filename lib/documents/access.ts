@@ -9,14 +9,15 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/d
 /**
  * Document access rules:
  *
- * 1. "employees/..." — HR files (NDAs, contracts). Hidden from the general
- *    documents browser; reachable only via employee profiles by holders of
- *    employee-view permissions for that organisation.
+ * 1. "employees/..." - HR files. Hidden from the general documents browser;
+ *    reachable only via employee profiles by holders of employee-view
+ *    permissions for that organisation.
  *
- * 2. Folder privacy is a SETTING stored in document_folder_rules: a rule on
- *    a folder makes it (and everything inside) private to one organisation.
- *    Folder names are free. Rules on nested folders stack: every rule on
- *    the path must pass (most restrictive wins).
+ * 2. Folder restriction is per-person: a restricted folder (row in
+ *    document_folder_rules) is visible only to the users assigned to it in
+ *    document_folder_members, plus all-scope holders (platform admins).
+ *    Restrictions on nested folders stack: every restricted ancestor must
+ *    include the user.
  *
  * 3. No rule = visible to all staff with documents.internal.view.
  */
@@ -25,21 +26,17 @@ export const EMPLOYEE_FILES_ROOT = "employees";
 
 export interface FolderRule {
   path: string;
-  organisationId: string;
-  organisationName: string;
+  memberCount: number;
+  isMember: boolean;
 }
 
 export interface DocAccess {
-  /** Can the user see/download this exact path? */
   canAccess: (path: string) => boolean;
-  /** Rule lookup for badges/controls, keyed by folder path. */
+  /** Restricted folders, keyed by folder path (for badges/controls). */
   ruleByPath: Map<string, FolderRule>;
-  /** Organisations the user may make folders private to. */
-  assignableOrgs: Array<{ id: string; name: string }>;
   isAllScope: boolean;
 }
 
-/** True when `prefix` is the same folder as, or an ancestor of, `path`. */
 function isPathWithin(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(`${prefix}/`);
 }
@@ -55,6 +52,7 @@ export async function getDocAccess(): Promise<DocAccess> {
     empAll,
     empDeptScope,
     { data: ruleRows },
+    { data: memberRows },
     { data: orgRows },
   ] = await Promise.all([
     supabase.auth.getUser(),
@@ -62,30 +60,28 @@ export async function getDocAccess(): Promise<DocAccess> {
     hasPermissionAnywhere(PERMISSIONS.DOCUMENTS_INTERNAL_VIEW),
     hasPermissionAnywhere(PERMISSIONS.EMPLOYEES_ALL_VIEW),
     getPermittedOrgIds(PERMISSIONS.EMPLOYEES_DEPARTMENT_VIEW),
-    service.from("document_folder_rules").select("path, organisation_id"),
-    service.from("organisations").select("id, name, slug"),
+    service.from("document_folder_rules").select("path"),
+    service.from("document_folder_members").select("path, user_id"),
+    service.from("organisations").select("id, slug"),
   ]);
 
-  const orgNameById = new Map((orgRows ?? []).map((o) => [o.id, o.name] as const));
-
-  // The user's memberships (which orgs' private folders they can enter)
-  let myOrgIds = new Set<string>();
-  if (user) {
-    const { data: memberships } = await supabase
-      .from("memberships")
-      .select("organisation_id")
-      .eq("user_id", user.id);
-    myOrgIds = new Set((memberships ?? []).map((m) => m.organisation_id));
-  }
-
   const isAllScope = docScope.all;
+  const userId = user?.id ?? "";
+
+  // Member counts + my membership per restricted folder
+  const countByPath = new Map<string, number>();
+  const myPaths = new Set<string>();
+  for (const row of memberRows ?? []) {
+    countByPath.set(row.path, (countByPath.get(row.path) ?? 0) + 1);
+    if (row.user_id === userId) myPaths.add(row.path);
+  }
 
   const ruleByPath = new Map<string, FolderRule>();
   for (const row of ruleRows ?? []) {
     ruleByPath.set(row.path, {
       path: row.path,
-      organisationId: row.organisation_id,
-      organisationName: orgNameById.get(row.organisation_id) ?? "Unknown",
+      memberCount: countByPath.get(row.path) ?? 0,
+      isMember: myPaths.has(row.path),
     });
   }
 
@@ -93,13 +89,14 @@ export async function getDocAccess(): Promise<DocAccess> {
   const empOrgIds = empAll || empDeptScope.all
     ? new Set((orgRows ?? []).map((o) => o.id))
     : new Set(empDeptScope.orgIds);
-  const orgSlugToId = new Map((orgRows ?? []).map((o) => [o.slug.toLowerCase(), o.id] as const));
+  const orgSlugToId = new Map(
+    (orgRows ?? []).map((o) => [o.slug.toLowerCase(), o.id] as const),
+  );
 
   const canAccess = (path: string): boolean => {
     const top = path.split("/")[0]?.toLowerCase() ?? "";
 
     if (top === EMPLOYEE_FILES_ROOT) {
-      // employees/<org_slug>/<employee_number>/...
       const slug = path.split("/")[1]?.toLowerCase() ?? "";
       const orgId = orgSlugToId.get(slug);
       return Boolean(orgId && empOrgIds.has(orgId));
@@ -107,19 +104,14 @@ export async function getDocAccess(): Promise<DocAccess> {
     if (!canDocs) return false;
     if (isAllScope) return true;
 
-    // Every rule on the ancestor chain must pass
+    // Every restricted ancestor must include this user
     for (const rule of ruleByPath.values()) {
-      if (isPathWithin(path, rule.path) && !myOrgIds.has(rule.organisationId)) {
+      if (isPathWithin(path, rule.path) && !rule.isMember) {
         return false;
       }
     }
     return true;
   };
 
-  const assignableOrgs = (orgRows ?? [])
-    .filter((o) => isAllScope || myOrgIds.has(o.id))
-    .map((o) => ({ id: o.id, name: o.name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  return { canAccess, ruleByPath, assignableOrgs, isAllScope };
+  return { canAccess, ruleByPath, isAllScope };
 }

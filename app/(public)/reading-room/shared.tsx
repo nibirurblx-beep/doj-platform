@@ -5,6 +5,7 @@ export const READING_ROOM_SECTIONS = [
   { href: "/news", label: "News" },
   { href: "/reading-room/press-releases", label: "Press Releases" },
   { href: "/reading-room/case-summaries", label: "Case Summaries" },
+  { href: "/reading-room/public-resources", label: "Public Resources" },
   { href: "/foia", label: "Freedom of Information" },
   { href: "/hall-of-attorney-generals", label: "Hall of Attorney Generals" },
 ];

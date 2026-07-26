@@ -211,21 +211,17 @@ async function logAuditFolder(
 }
 
 /**
- * Enable/disable folder privacy. orgId = private to that organisation,
- * empty = visible to all staff. Works on any folder at any level.
+ * Restrict or open a folder. Restricting creates the rule and assigns the
+ * actor as the first member (so they cannot lock themselves out); opening
+ * deletes the rule, which cascades away the member list.
  */
-export async function setFolderVisibilityAction(formData: FormData) {
+export async function setFolderRestrictedAction(formData: FormData) {
   const actor = await requireDocumentActor(PERMISSIONS.DOCUMENTS_CREATE);
   if ("error" in actor) return { error: actor.error };
 
   const path = formData.get("path");
-  const orgId = formData.get("orgId");
-  if (
-    typeof path !== "string" ||
-    !path ||
-    !isSafePath(path) ||
-    typeof orgId !== "string"
-  ) {
+  const restricted = formData.get("restricted") === "true";
+  if (typeof path !== "string" || !path || !isSafePath(path)) {
     return { error: "Invalid input" };
   }
 
@@ -233,24 +229,25 @@ export async function setFolderVisibilityAction(formData: FormData) {
   if (path.split("/")[0]?.toLowerCase() === EMPLOYEE_FILES_ROOT) {
     return { error: "Employee files have fixed protection" };
   }
-
   const access = await getDocAccess();
   if (!access.canAccess(`${path}/x`)) {
     return { error: "You do not have access to that folder" };
   }
-  if (orgId && !access.assignableOrgs.some((o) => o.id === orgId)) {
-    return { error: "You cannot restrict folders to that organisation" };
-  }
 
   const service = createSupabaseServiceClient();
-
-  if (orgId) {
+  if (restricted) {
     const { error } = await service.from("document_folder_rules").upsert({
       path,
-      organisation_id: orgId,
+      organisation_id: null,
       updated_by: actor.userId,
     });
     if (error) return { error: error.message };
+    // Assign the actor so the folder stays reachable for them
+    await service.from("document_folder_members").upsert({
+      path,
+      user_id: actor.userId,
+      added_by: actor.userId,
+    });
   } else {
     const { error } = await service
       .from("document_folder_rules")
@@ -261,17 +258,95 @@ export async function setFolderVisibilityAction(formData: FormData) {
 
   const { logAudit } = await import("@/lib/audit");
   await logAudit(service, {
-    action: orgId ? "document.folder.restricted" : "document.folder.opened",
+    action: restricted ? "document.folder.restricted" : "document.folder.opened",
     entityType: "storage_object",
-    orgId: orgId || null,
     reason: path,
     actor: actor.userId,
   });
-
   revalidatePath("/portal/documents");
-  return { success: true, message: orgId ? "Folder is now private" : "Folder visible to all staff" };
+  return { success: true, message: restricted ? "Folder restricted - assign people below" : "Folder opened to all staff" };
 }
 
+/** Assign a user to a restricted folder. */
+export async function addFolderMemberAction(formData: FormData) {
+  const actor = await requireDocumentActor(PERMISSIONS.DOCUMENTS_CREATE);
+  if ("error" in actor) return { error: actor.error };
+
+  const path = formData.get("path");
+  const userId = formData.get("userId");
+  if (
+    typeof path !== "string" || !path || !isSafePath(path) ||
+    typeof userId !== "string" || !userId
+  ) {
+    return { error: "Choose a person to add" };
+  }
+
+  const { getDocAccess } = await import("@/lib/documents/access");
+  const access = await getDocAccess();
+  if (!access.canAccess(`${path}/x`)) {
+    return { error: "You do not have access to that folder" };
+  }
+  if (!access.ruleByPath.has(path)) {
+    return { error: "That folder is not restricted" };
+  }
+
+  const service = createSupabaseServiceClient();
+  const { error } = await service.from("document_folder_members").upsert({
+    path,
+    user_id: userId,
+    added_by: actor.userId,
+  });
+  if (error) return { error: error.message };
+
+  const { logAudit } = await import("@/lib/audit");
+  await logAudit(service, {
+    action: "document.folder.member_added",
+    entityType: "storage_object",
+    reason: `${path} += ${userId}`,
+    actor: actor.userId,
+  });
+  revalidatePath("/portal/documents");
+  return { success: true, message: "Access granted" };
+}
+
+/** Remove a user from a restricted folder. */
+export async function removeFolderMemberAction(formData: FormData) {
+  const actor = await requireDocumentActor(PERMISSIONS.DOCUMENTS_CREATE);
+  if ("error" in actor) return { error: actor.error };
+
+  const path = formData.get("path");
+  const userId = formData.get("userId");
+  if (
+    typeof path !== "string" || !path || !isSafePath(path) ||
+    typeof userId !== "string" || !userId
+  ) {
+    return { error: "Invalid input" };
+  }
+
+  const { getDocAccess } = await import("@/lib/documents/access");
+  const access = await getDocAccess();
+  if (!access.canAccess(`${path}/x`)) {
+    return { error: "You do not have access to that folder" };
+  }
+
+  const service = createSupabaseServiceClient();
+  const { error } = await service
+    .from("document_folder_members")
+    .delete()
+    .eq("path", path)
+    .eq("user_id", userId);
+  if (error) return { error: error.message };
+
+  const { logAudit } = await import("@/lib/audit");
+  await logAudit(service, {
+    action: "document.folder.member_removed",
+    entityType: "storage_object",
+    reason: `${path} -= ${userId}`,
+    actor: actor.userId,
+  });
+  revalidatePath("/portal/documents");
+  return { success: true, message: "Access removed" };
+}
 /**
  * Add a resource link: a named hyperlink that lives in the folder like a
  * file, inherits its privacy, and opens the URL when clicked.

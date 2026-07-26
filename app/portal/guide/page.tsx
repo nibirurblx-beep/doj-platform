@@ -110,8 +110,8 @@ const SECTIONS: Array<{
     title: "Documents",
     steps: [
       "Browse, upload (20 MB max), create folders, download. Staff can view and download; leadership and global admins can upload, organise and delete.",
-      "Every folder has a visibility dropdown: All staff, or Private to a department. Privacy covers everything inside the folder and can be changed at any time.",
-      "Private folders show a navy 'Private to …' badge. No badge means all staff can see it.",
+      "Folders are open to all staff by default. Use Restrict on a folder to limit it to people you assign by name - restricting adds you automatically so you keep access, then use Manage access to add or remove people.",
+      "Restricted folders show a navy 'Restricted' badge with how many people have access. No badge means all staff can see it. Restrictions on nested folders stack.",
       "Department leadership can restrict folders to their own department; global admins to any.",
       "Employee files (NDAs, contracts) never appear in this browser — they live on employee profiles with their own protection.",
     ],

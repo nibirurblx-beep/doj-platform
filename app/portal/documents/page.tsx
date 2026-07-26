@@ -12,7 +12,7 @@ import {
 import { getDocAccess, EMPLOYEE_FILES_ROOT } from "@/lib/documents/access";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { UploadForm, NewFolderForm, DeleteButton, DeleteFolderButton, FolderVisibilityControl, AddResourceForm } from "./toolbar";
+import { UploadForm, NewFolderForm, DeleteButton, DeleteFolderButton, FolderAccessControl, AddResourceForm } from "./toolbar";
 
 export const metadata = { title: "Documents" };
 
@@ -47,11 +47,40 @@ export default async function DocumentsPage({
       : "";
 
   const access = await getDocAccess();
+  const service = createSupabaseServiceClient();
+
+  // Staff list + member names for the access controls
+  const [{ data: membershipRows }, { data: memberRows }] = await Promise.all([
+    service.from("memberships").select("user_id"),
+    service.from("document_folder_members").select("path, user_id"),
+  ]);
+  const staffIds = Array.from(
+    new Set([
+      ...(membershipRows ?? []).map((m) => m.user_id),
+      ...(memberRows ?? []).map((m) => m.user_id),
+    ]),
+  );
+  const { data: staffProfiles } = staffIds.length
+    ? await service.from("profiles").select("id, display_name").in("id", staffIds)
+    : { data: [] };
+  const staffNameById = new Map(
+    (staffProfiles ?? []).map((p) => [p.id, p.display_name || "Unknown"]),
+  );
+  const staffList = staffIds
+    .map((id) => ({ id, name: staffNameById.get(id) || "Unknown" }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const membersByPath = new Map<string, Array<{ id: string; name: string }>>();
+  for (const row of memberRows ?? []) {
+    if (!membersByPath.has(row.path)) membersByPath.set(row.path, []);
+    membersByPath.get(row.path)!.push({
+      id: row.user_id,
+      name: staffNameById.get(row.user_id) || "Unknown",
+    });
+  }
   if (folder && !access.canAccess(`${folder}/x`)) {
     redirect("/portal/documents");
   }
 
-  const service = createSupabaseServiceClient();
   const { data: entries, error } = await service.storage
     .from(DOCUMENTS_BUCKET)
     .list(folder || undefined, {
@@ -198,17 +227,25 @@ export default async function DocumentsPage({
                       </Link>
                       {access.ruleByPath.has(path) && (
                         <span className="ml-2 rounded bg-navy-900 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gold-200">
-                          Private to {access.ruleByPath.get(path)!.organisationName}
+                          Restricted · {access.ruleByPath.get(path)!.memberCount}{" "}
+                          {access.ruleByPath.get(path)!.memberCount === 1 ? "person" : "people"}
                         </span>
                       )}
                     </td>
                     <td className="px-5 py-3 text-grey-600">—</td>
                     <td className="px-5 py-3 text-grey-600">
                       {canUpload && (
-                        <FolderVisibilityControl
+                        <FolderAccessControl
                           path={path}
-                          currentOrgId={access.ruleByPath.get(path)?.organisationId ?? null}
-                          organisations={access.assignableOrgs}
+                          rule={
+                            access.ruleByPath.has(path)
+                              ? {
+                                  memberCount: access.ruleByPath.get(path)!.memberCount,
+                                  members: membersByPath.get(path) ?? [],
+                                }
+                              : null
+                          }
+                          staff={staffList}
                         />
                       )}
                     </td>

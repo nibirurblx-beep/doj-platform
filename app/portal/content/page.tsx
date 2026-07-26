@@ -82,6 +82,12 @@ export default async function ContentListPage({
             New case summary
           </Link>
           <Link
+            href="/portal/content/resources"
+            className="rounded border border-grey-300 bg-white px-3 py-1.5 text-sm hover:border-navy-900"
+          >
+            Public resources
+          </Link>
+          <Link
             href="/portal/content/new?type=page"
             className="rounded border border-grey-300 bg-white px-3 py-1.5 text-sm hover:border-navy-900"
           >
