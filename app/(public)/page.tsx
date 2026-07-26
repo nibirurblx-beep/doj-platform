@@ -30,7 +30,8 @@ const DEPARTMENTS = [
     blurb:
       "Frontline policing, public safety and criminal investigation within the city.",
     image: "/brand/departments/mpd.png",
-    href: "/departments/mpd",
+    href: "https://osfusametropolitanpolicedept.netlify.app/",
+    // href: "/departments/mpd",
   },
   {
     code: "FBI",
