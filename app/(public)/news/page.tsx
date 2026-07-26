@@ -1,6 +1,7 @@
 import { createSupabaseServiceClient } from "@/lib/db/server";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { ReadingRoomShell } from "../reading-room/shared";
 
 export const metadata: Metadata = { title: "News" };
 export const revalidate = 300;
@@ -25,9 +26,8 @@ export default async function NewsListPage() {
     .limit(50);
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-16">
-      <h1 className="font-display text-3xl">News</h1>
-      <p className="mt-2 text-grey-600">
+    <ReadingRoomShell title="News" active="/news">
+      <p className="text-sm leading-relaxed text-grey-700">
         Announcements and updates from the Department of Justice.
       </p>
 
@@ -73,6 +73,6 @@ export default async function NewsListPage() {
           ))}
         </div>
       )}
-    </div>
+    </ReadingRoomShell>
   );
 }
