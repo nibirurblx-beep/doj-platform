@@ -149,8 +149,10 @@ export function FieldPlacement({
       y: Math.min(Math.max((e.clientY - rect.top) / rect.height, 0), 1),
     };
   }
-  function draftRect(current: { x: number; y: number }): PlacedField {
-    const d = draft.current!;
+  function draftRect(
+    current: { x: number; y: number },
+    d: { page: number; startX: number; startY: number },
+  ): PlacedField {
     return {
       id: newId(),
       page: d.page,
@@ -180,20 +182,21 @@ export function FieldPlacement({
     setPreview(null);
   }
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!draft.current) return;
+    const d = draft.current;
+    if (!d) return;
     const pos = pagePos(e);
-    if (!pos || pos.page !== draft.current.page) return;
+    if (!pos || pos.page !== d.page) return;
     e.preventDefault();
-    setPreview(draftRect(pos));
+    setPreview(draftRect(pos, d));
   }
   function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    if (!draft.current) return;
-    const pos = pagePos(e);
     const d = draft.current;
+    if (!d) return;
     draft.current = null;
     setPreview(null);
+    const pos = pagePos(e);
     if (!pos || pos.page !== d.page) return;
-    const rect = draftRect(pos);
+    const rect = draftRect(pos, d);
     if (rect.w < FIELD_MIN_W || rect.h < FIELD_MIN_H) return;
     setFields((prev) => [...prev, rect]);
   }
