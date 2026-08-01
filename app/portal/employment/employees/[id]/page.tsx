@@ -10,15 +10,8 @@ import { EMPLOYEE_FILES_ROOT } from "@/lib/documents/access";
 import type { ChecklistState } from "@/lib/employees/checklist";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import {
-  Checklist,
-  EmployeeFileUpload,
-  DeleteEmployeeFileButton,
-  EmployeeStatusControls,
-  CancelSignatureButton,
-  DirectoryToggle,
-  EmployeePhotoControl,
-} from "../widgets";
+import { Checklist, EmployeeFileUpload, DeleteEmployeeFileButton, EmployeeStatusControls } from "../widgets";
+import { TemplatePicker } from "@/components/signatures/template-picker";
 
 export const metadata = { title: "Employee" };
 
@@ -48,7 +41,7 @@ export default async function EmployeeDetailPage({
   const { data: emp } = await service
     .from("employees")
     .select(
-      "id, employee_number, user_id, rank, status, started_at, ended_at, end_reason, checklist, directory_visible, photo_url, organisation_id, organisations(name, slug), offices(name)",
+      "id, employee_number, user_id, rank, status, started_at, ended_at, end_reason, checklist, organisation_id, organisations(name, slug), offices(name)",
     )
     .eq("id", id)
     .single();
@@ -89,11 +82,17 @@ export default async function EmployeeDetailPage({
     : { data: [] };
   const files = (fileEntries ?? []).filter((f) => f.id);
 
-  const { data: signatureRequests } = await service
-    .from("signature_requests")
-    .select("id, title, status, requested_at, signed_at, signed_path, requested_by")
-    .eq("employee_id", emp.id)
-    .order("requested_at", { ascending: false });
+  // Templates available to start a request from (with fields configured)
+  const { data: templateRows } = canEdit
+    ? await service
+        .from("signature_templates")
+        .select("id, name, fields")
+        .eq("organisation_id", emp.organisation_id)
+        .order("name")
+    : { data: [] };
+  const templates = (templateRows ?? []).filter(
+    (t) => Array.isArray(t.fields) && t.fields.length > 0,
+  );
 
   // Names for "ticked by" on the checklist
   const checklist = (emp.checklist ?? {}) as ChecklistState;
@@ -136,22 +135,11 @@ export default async function EmployeeDetailPage({
           {emp.status}
         </span>
         {canEdit && (
-          <span className="ml-auto inline-flex flex-wrap items-center gap-2">
-            <DirectoryToggle employeeId={emp.id} visible={emp.directory_visible} />
+          <span className="ml-auto">
             <EmployeeStatusControls employeeId={emp.id} status={emp.status} />
           </span>
         )}
       </div>
-
-      {canEdit && (
-        <div className="rounded border border-grey-200 bg-white p-4">
-          <EmployeePhotoControl
-            employeeId={emp.id}
-            photoUrl={emp.photo_url}
-            displayName={profile?.display_name || emp.employee_number}
-          />
-        </div>
-      )}
 
       {emp.status !== "active" && (
         <div className="rounded border border-grey-200 bg-grey-050 px-4 py-3 text-sm text-grey-700">
@@ -218,6 +206,7 @@ export default async function EmployeeDetailPage({
                   <th className="py-2 font-medium">Name</th>
                   <th className="py-2 font-medium">Size</th>
                   <th className="py-2 font-medium">Uploaded</th>
+                  {canEdit && <th className="py-2"></th>}
                   {canDeleteFiles && <th className="py-2"></th>}
                 </tr>
               </thead>
@@ -238,22 +227,26 @@ export default async function EmployeeDetailPage({
                       </td>
                       <td className="py-2 text-grey-600">{formatSize(meta?.size ?? null)}</td>
                       <td className="py-2 text-grey-600">{formatDate(file.created_at)}</td>
-                      {canDeleteFiles && (
-                        <td className="py-2 text-right">
-                          <span className="inline-flex items-center gap-2">
-                            {file.name.toLowerCase().endsWith(".pdf") && (
+                      {canEdit && (
+                        <td className="py-2">
+                          {file.name.toLowerCase().endsWith(".pdf") &&
+                            !file.name.includes("(signed") &&
+                            !file.name.includes("(awaiting") && (
                               <Link
                                 href={`/portal/employment/employees/${emp.id}/request-signature?file=${encodeURIComponent(file.name)}`}
                                 className="rounded border border-grey-300 px-2 py-1 text-xs hover:border-navy-900"
                               >
-                                Request signature
+                                Prepare &amp; send
                               </Link>
                             )}
-                            <DeleteEmployeeFileButton
-                              employeeId={emp.id}
-                              fileName={file.name}
-                            />
-                          </span>
+                        </td>
+                      )}
+                      {canDeleteFiles && (
+                        <td className="py-2 text-right">
+                          <DeleteEmployeeFileButton
+                            employeeId={emp.id}
+                            fileName={file.name}
+                          />
                         </td>
                       )}
                     </tr>
@@ -262,63 +255,25 @@ export default async function EmployeeDetailPage({
               </tbody>
             </table>
           )}
-        </div>
 
-        {/* Signature requests */}
-        {(signatureRequests ?? []).length > 0 && (
-          <div className="mt-6 border-t border-grey-100 pt-4">
-            <h3 className="text-sm font-medium">Signature requests</h3>
-            <ul className="mt-2 space-y-1.5">
-              {(signatureRequests ?? []).map((req) => (
-                <li
-                  key={req.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded bg-grey-050 px-3 py-2 text-sm"
-                >
-                  <span>
-                    {req.title}{" "}
-                    <span
-                      className={`ml-1 rounded px-1.5 py-0.5 text-xs font-medium ${
-                        req.status === "signed" || req.status === "complete"
-                          ? "bg-green-50 text-green-700"
-                          : req.status === "pending" || req.status === "pending_employer"
-                            ? "bg-amber-50 text-amber-800"
-                            : "bg-grey-100 text-grey-600"
-                      }`}
-                    >
-                      {req.status === "pending"
-                        ? "Awaiting employee"
-                        : req.status === "pending_employer"
-                          ? "Awaiting employer"
-                          : req.status === "complete" || req.status === "signed"
-                            ? "Complete"
-                            : "Cancelled"}
-                    </span>
-                  </span>
-                  <span className="flex items-center gap-2">
-                    {req.status === "signed" && req.signed_path && (
-                      <a
-                        href={`/portal/documents/download?path=${encodeURIComponent(req.signed_path)}`}
-                        className="text-xs text-navy-900 underline"
-                      >
-                        Signed copy
-                      </a>
-                    )}
-                    {req.status === "pending_employer" && (
-                      <Link
-                        href={`/portal/sign/${req.id}`}
-                        className="text-xs text-navy-900 underline"
-                      >
-                        Countersign
-                      </Link>
-                    )}
-                    {(req.status === "pending" || req.status === "pending_employer") &&
-                      canDeleteFiles && <CancelSignatureButton requestId={req.id} />}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          {canEdit && templates.length > 0 && (
+            <div className="mt-4 border-t border-grey-100 pt-4">
+              <TemplatePicker
+                employeeId={emp.id}
+                templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+              />
+            </div>
+          )}
+          {canEdit && templates.length === 0 && (
+            <p className="mt-4 border-t border-grey-100 pt-4 text-xs text-grey-500">
+              Tip: set up reusable NDA and contract{" "}
+              <a href="/portal/employment/templates" className="underline">
+                templates
+              </a>{" "}
+              to send standard documents without preparing the PDF each time.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

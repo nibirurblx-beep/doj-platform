@@ -1,8 +1,12 @@
 import { requireActiveUser } from "@/lib/auth/session";
 import { createSupabaseServiceClient } from "@/lib/db/server";
 import { notFound, redirect } from "next/navigation";
-import { SignaturePad } from "@/components/signatures/signature-pad";
-import { SignForm } from "./sign-form";
+import { SigningForm } from "./signing-form";
+import {
+  normaliseField,
+  fieldsForStage,
+  type PlacedField,
+} from "@/lib/signatures/fields";
 
 export const metadata = { title: "Sign document" };
 
@@ -32,7 +36,6 @@ export default async function SignPage({
 
   const orgName =
     (request.organisations as unknown as { name: string } | null)?.name ?? "";
-  const boxes = (request.boxes ?? []) as Array<{ signer: string }>;
 
   const myTurn =
     (request.status === "pending" && isEmployeeSigner) ||
@@ -45,7 +48,7 @@ export default async function SignPage({
         : request.status === "cancelled"
           ? "This signature request was cancelled."
           : request.status === "pending"
-            ? "Waiting for the employee to sign first."
+            ? "Waiting for the employee to complete their part first."
             : "Waiting for the employer to countersign.";
     return (
       <div className="mx-auto max-w-2xl space-y-4">
@@ -66,7 +69,10 @@ export default async function SignPage({
   }
 
   const stage = request.status === "pending" ? "employee" : "employer";
-  const myBoxCount = boxes.filter((b) => b.signer === stage).length;
+  const fields: PlacedField[] = ((request.boxes ?? []) as Record<string, unknown>[]).map(
+    normaliseField,
+  );
+  const { signatures, inputs } = fieldsForStage(fields, stage);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -74,8 +80,8 @@ export default async function SignPage({
         <h1 className="font-display text-2xl">Sign: {request.title}</h1>
         <p className="mt-1 text-sm text-grey-600">
           {stage === "employee"
-            ? `Requested by ${orgName} leadership. Read the document, then sign below.`
-            : "Employer countersignature: the employee has signed - review and add yours."}
+            ? `Requested by ${orgName} leadership. Read the document, complete any fields, then sign below.`
+            : "Employer countersignature: the employee has completed their part - review, complete any fields, and add your signature."}
         </p>
       </div>
 
@@ -99,19 +105,18 @@ export default async function SignPage({
       </div>
 
       <div className="rounded border border-grey-200 bg-white p-6">
-        <h2 className="font-medium">Your signature</h2>
-        <p className="mt-1 text-sm text-grey-600">
-          {myBoxCount > 0
-            ? `Your signature will be placed in ${myBoxCount} marked position${myBoxCount === 1 ? "" : "s"} on the document.`
-            : "A signature certificate page will be added to the document."}{" "}
-          A certificate recording every signer is added when the document
-          completes.
-        </p>
-        <div className="mt-4">
-          <SignForm requestId={request.id}>
-            <SignaturePad fieldName="signature" />
-          </SignForm>
-        </div>
+        {signatures.length > 0 && (
+          <p className="mb-4 text-sm text-grey-600">
+            Your signature will be placed in {signatures.length} marked
+            position{signatures.length === 1 ? "" : "s"} on the document.
+          </p>
+        )}
+        <SigningForm
+          requestId={request.id}
+          inputs={inputs}
+          needsSignature={signatures.length > 0}
+          defaultName={session.user.displayName ?? ""}
+        />
       </div>
     </div>
   );

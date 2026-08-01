@@ -46,7 +46,7 @@ export async function appendSignatureCertificate(
     color: NAVY,
   });
   y -= 18;
-  page.drawText("Department of Justice - OSFUSA", {
+  page.drawText("Department of Justice Roleplay Community", {
     x: margin,
     y,
     size: 10,
@@ -221,7 +221,7 @@ export async function appendCompletionCertificate(
     x: margin, y, size: 22, font: serifBold, color: NAVY,
   });
   y -= 18;
-  page.drawText("Department of Justice - OSFUSA", {
+  page.drawText("Department of Justice Roleplay Community", {
     x: margin, y, size: 10, font: serif, color: GREY,
   });
   y -= 30;
@@ -270,6 +270,55 @@ export async function appendCompletionCertificate(
   for (const l of lines) {
     page.drawText(l, { x: margin, y, size: 9, font: serif, color: GREY });
     y -= 13;
+  }
+  return pdf.save();
+}
+
+// ============================================================================
+// Text / date field stamping (fill fields)
+// ============================================================================
+
+export interface TextFieldStamp {
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  value: string;
+}
+
+/** Draws text values into the given field rectangles, size-fitted to height. */
+export async function stampTextFields(
+  pdfBytes: Uint8Array,
+  fields: TextFieldStamp[],
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const pages = pdf.getPages();
+
+  for (const field of fields) {
+    const value = (field.value ?? "").toString();
+    if (!value) continue;
+    const page = pages[field.page];
+    if (!page) continue;
+    const { width, height } = page.getSize();
+    const boxW = field.w * width;
+    const boxH = field.h * height;
+
+    // Fit the font size to the box height, then shrink if too wide
+    let size = Math.min(boxH * 0.62, 16);
+    while (size > 5 && font.widthOfTextAtSize(value, size) > boxW - 4) {
+      size -= 0.5;
+    }
+    const textWidth = font.widthOfTextAtSize(value, size);
+    page.drawText(value, {
+      x: field.x * width + Math.max(2, (boxW - textWidth) / 2),
+      // vertically centre within the box (pdf-lib origin bottom-left)
+      y: (1 - field.y - field.h) * height + (boxH - size) / 2 + size * 0.15,
+      size,
+      font,
+      color: NAVY,
+    });
   }
   return pdf.save();
 }
